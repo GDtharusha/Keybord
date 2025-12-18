@@ -317,17 +317,13 @@ public class FastKeyboardService extends InputMethodService {
     
     private void openFloatingWindow(String mode) {
         try {
-            Intent intent = new Intent(this, FloatingWindowService.class);
+            // Use Activity instead of Service - WebView works in Activity!
+            Intent intent = new Intent(this, PopupActivity.class);
             intent.putExtra("mode", mode);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(intent);
-            } else {
-                startService(intent);
-            }
+            startActivity(intent);
         } catch (Exception e) {
-            showToast("Cannot open floating window. Check overlay permission.");
+            showToast("Cannot open popup");
         }
     }
 

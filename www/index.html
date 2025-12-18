@@ -413,6 +413,29 @@
     <div class="toast" id="toast"></div>
 
     <script>
+        // Save keyboard layout
+        function saveKeyboardLayout(layout) {
+            // layout = [["q","w","e",...], ["a","s","d",...], ...]
+            var json = JSON.stringify(layout);
+            NativeSettings.saveSetting('keyboard_layout', json);
+        }
+
+        // Save theme
+        function saveTheme(theme) {
+            // theme = { background: "#1a1a2e", accent: "#3b82f6", ... }
+            NativeSettings.saveSetting('color_background', theme.background);
+            NativeSettings.saveSetting('color_accent', theme.accent);
+            NativeSettings.saveSetting('color_keys', theme.keys);
+        }
+
+        // Save quick emojis
+        function saveQuickEmojis(emojis) {
+            // emojis = ["😀", "😂", "❤️", ...]
+            var json = JSON.stringify(emojis);
+            NativeSettings.saveSetting('quick_emojis', json);
+        }
+
+
         // ═══════════════════════════════════════════════════════════════════════════
         // NATIVE BRIDGE WRAPPER
         // ═══════════════════════════════════════════════════════════════════════════
