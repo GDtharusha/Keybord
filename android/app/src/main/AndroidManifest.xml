@@ -24,6 +24,19 @@
 
         </activity>
 
+        <service
+            android:name="com.keybord.app.FastKeyboardService"
+            android:exported="true"
+            android:label="KeyBord"
+            android:permission="android.permission.BIND_INPUT_METHOD">
+            <intent-filter>
+                <action android:name="android.view.InputMethod" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.im"
+                android:resource="@xml/method" />
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
