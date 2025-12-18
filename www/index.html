@@ -420,7 +420,7 @@
         const Native = {
             available: typeof NativeSettings !== 'undefined',
 
-            call: function(method, ...args) {
+            call: function(method) {
                 if (this.available && NativeSettings[method]) {
                     return NativeSettings[method](...args);
                 }

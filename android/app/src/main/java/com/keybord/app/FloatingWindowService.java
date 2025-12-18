@@ -1,48 +1,118 @@
 package com.keybord.app;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.app.Service;
 import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.PixelFormat;
-import android.graphics.Typeface;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.DisplayMetrics;
-import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
+import android.webkit.JavascriptInterface;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
+import android.widget.FrameLayout;
+import android.widget.Toast;
 
 public class FloatingWindowService extends Service {
 
+    private static final String CHANNEL_ID = "floating_window_channel";
+    
     private WindowManager windowManager;
-    private View floatingView;
+    private FrameLayout floatingView;
+    private WebView webView;
     private WindowManager.LayoutParams params;
+    private String currentMode = "tools";
+    
+    // Touch handling for drag
+    private int initialX, initialY;
+    private float initialTouchX, initialTouchY;
+    private boolean isDragging = false;
 
     @Override
     public IBinder onBind(Intent intent) {
         return null;
     }
+    
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        createNotificationChannel();
+    }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        if (intent != null) {
+            currentMode = intent.getStringExtra("mode");
+            if (currentMode == null) currentMode = "tools";
+        }
+        
+        // Start as foreground service (required for Android 8+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification notification = new Notification.Builder(this, CHANNEL_ID)
+                .setContentTitle("KeyBord Tools")
+                .setContentText("Floating panel is active")
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .build();
+            startForeground(1, notification);
+        }
+        
         if (floatingView == null) {
             createFloatingWindow();
+        } else {
+            // Update content if already open
+            loadContent();
         }
+        
         return START_STICKY;
+    }
+    
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_ID,
+                "Floating Window",
+                NotificationManager.IMPORTANCE_LOW
+            );
+            NotificationManager manager = getSystemService(NotificationManager.class);
+            if (manager != null) {
+                manager.createNotificationChannel(channel);
+            }
+        }
     }
 
     private void createFloatingWindow() {
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         
-        // Create the floating view
-        floatingView = buildFloatingUI();
+        // Create container
+        floatingView = new FrameLayout(this);
+        floatingView.setBackgroundColor(Color.parseColor("#1a1a2e"));
         
-        // Window parameters
+        // Create WebView for HTML content
+        webView = new WebView(this);
+        webView.setBackgroundColor(Color.TRANSPARENT);
+        
+        WebSettings settings = webView.getSettings();
+        settings.setJavaScriptEnabled(true);
+        settings.setDomStorageEnabled(true);
+        
+        webView.addJavascriptInterface(new WebBridge(), "NativeBridge");
+        
+        webView.setWebViewClient(new WebViewClient());
+        
+        floatingView.addView(webView, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ));
+        
+        // Window params
         int layoutFlag;
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             layoutFlag = WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
@@ -51,8 +121,8 @@ public class FloatingWindowService extends Service {
         }
         
         DisplayMetrics dm = getResources().getDisplayMetrics();
-        int width = (int) (dm.widthPixels * 0.85);
-        int height = (int) (dm.heightPixels * 0.6);
+        int width = (int) (dm.widthPixels * 0.9);
+        int height = (int) (dm.heightPixels * 0.55);
         
         params = new WindowManager.LayoutParams(
             width,
@@ -63,179 +133,164 @@ public class FloatingWindowService extends Service {
         );
         
         params.gravity = Gravity.CENTER;
-        params.x = 0;
-        params.y = 0;
+        
+        // Touch listener for dragging
+        floatingView.setOnTouchListener((v, event) -> {
+            switch (event.getAction()) {
+                case MotionEvent.ACTION_DOWN:
+                    initialX = params.x;
+                    initialY = params.y;
+                    initialTouchX = event.getRawX();
+                    initialTouchY = event.getRawY();
+                    isDragging = false;
+                    return true;
+                    
+                case MotionEvent.ACTION_MOVE:
+                    int dx = (int) (event.getRawX() - initialTouchX);
+                    int dy = (int) (event.getRawY() - initialTouchY);
+                    
+                    if (Math.abs(dx) > 10 || Math.abs(dy) > 10) {
+                        isDragging = true;
+                        params.x = initialX + dx;
+                        params.y = initialY + dy;
+                        windowManager.updateViewLayout(floatingView, params);
+                    }
+                    return true;
+                    
+                case MotionEvent.ACTION_UP:
+                    return isDragging;
+            }
+            return false;
+        });
         
         windowManager.addView(floatingView, params);
+        loadContent();
     }
     
-    private View buildFloatingUI() {
-        // Main container
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setBackgroundColor(Color.parseColor("#1a1a2e"));
-        container.setPadding(dp(16), dp(16), dp(16), dp(16));
-        
-        // Add rounded corners effect
-        container.setElevation(dp(10));
-        
-        // Header with drag handle
-        LinearLayout header = new LinearLayout(this);
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(0, 0, 0, dp(16));
-        
-        // Drag indicator
-        View dragHandle = new View(this);
-        LinearLayout.LayoutParams dragParams = new LinearLayout.LayoutParams(dp(40), dp(4));
-        dragParams.gravity = Gravity.CENTER;
-        dragHandle.setLayoutParams(dragParams);
-        dragHandle.setBackgroundColor(Color.parseColor("#4a4a6a"));
-        
-        // Title
-        TextView title = new TextView(this);
-        title.setText("⚡ Quick Tools");
-        title.setTextColor(Color.WHITE);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        title.setTypeface(null, Typeface.BOLD);
-        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        title.setLayoutParams(titleParams);
-        
-        // Close button
-        TextView closeBtn = new TextView(this);
-        closeBtn.setText("✕");
-        closeBtn.setTextColor(Color.parseColor("#ff6b6b"));
-        closeBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-        closeBtn.setPadding(dp(12), dp(8), dp(12), dp(8));
-        closeBtn.setOnClickListener(v -> stopSelf());
-        
-        header.addView(title);
-        header.addView(closeBtn);
-        
-        // Make header draggable
-        header.setOnTouchListener(new View.OnTouchListener() {
-            private int initialX, initialY;
-            private float initialTouchX, initialTouchY;
-            
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        initialX = params.x;
-                        initialY = params.y;
-                        initialTouchX = event.getRawX();
-                        initialTouchY = event.getRawY();
-                        return true;
-                    case MotionEvent.ACTION_MOVE:
-                        params.x = initialX + (int) (event.getRawX() - initialTouchX);
-                        params.y = initialY + (int) (event.getRawY() - initialTouchY);
-                        windowManager.updateViewLayout(floatingView, params);
-                        return true;
-                }
-                return false;
-            }
-        });
-        
-        // Content area with scroll
-        ScrollView scroll = new ScrollView(this);
-        scroll.setLayoutParams(new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
-        ));
-        
-        LinearLayout content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(0, dp(8), 0, dp(8));
-        
-        // Add tool buttons
-        String[][] tools = {
-            {"🎨", "Themes", "Customize keyboard colors"},
-            {"📋", "Clipboard", "View clipboard history"},
-            {"😀", "Stickers", "Send fun stickers"},
-            {"🔤", "Fonts", "Change text style"},
-            {"🌐", "Translate", "Quick translation"},
-            {"📝", "Notes", "Quick notes"},
-            {"🔊", "TTS", "Text to speech"},
-            {"🤖", "AI Write", "AI writing assistant"}
-        };
-        
-        for (String[] tool : tools) {
-            content.addView(createToolButton(tool[0], tool[1], tool[2]));
+    private void loadContent() {
+        String html = getHtmlContent();
+        webView.loadDataWithBaseURL(null, html, "text/html", "UTF-8", null);
+    }
+    
+    private String getHtmlContent() {
+        return "<!DOCTYPE html>" +
+"<html><head>" +
+"<meta charset='UTF-8'>" +
+"<meta name='viewport' content='width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no'>" +
+"<style>" +
+"*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}" +
+"body{font-family:system-ui,sans-serif;background:#1a1a2e;color:#fff;height:100vh;display:flex;flex-direction:column}" +
+".header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:#141424;border-bottom:1px solid rgba(255,255,255,0.1)}" +
+".header h1{font-size:16px;font-weight:600}" +
+".close-btn{width:32px;height:32px;display:flex;align-items:center;justify-content:center;background:rgba(255,100,100,0.2);border-radius:50%;color:#ff6b6b;font-size:18px;cursor:pointer}" +
+".tabs{display:flex;padding:8px 12px;gap:8px;background:#12121f}" +
+".tab{flex:1;padding:10px;text-align:center;background:rgba(255,255,255,0.05);border-radius:8px;font-size:13px;cursor:pointer;transition:all 0.2s}" +
+".tab.active{background:#3b82f6;color:#fff}" +
+".content{flex:1;overflow-y:auto;padding:12px}" +
+".grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}" +
+".item{display:flex;flex-direction:column;align-items:center;padding:14px 8px;background:rgba(255,255,255,0.05);border-radius:12px;cursor:pointer;transition:all 0.15s}" +
+".item:active{transform:scale(0.95);background:rgba(255,255,255,0.1)}" +
+".item .icon{font-size:28px;margin-bottom:6px}" +
+".item .label{font-size:11px;color:rgba(255,255,255,0.7);text-align:center}" +
+".emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:4px}" +
+".emoji{font-size:24px;padding:8px;text-align:center;cursor:pointer;border-radius:8px}" +
+".emoji:active{background:rgba(255,255,255,0.1)}" +
+".section-title{font-size:12px;color:rgba(255,255,255,0.5);margin:12px 0 8px;padding-left:4px}" +
+"</style></head><body>" +
+"<div class='header'>" +
+"  <h1>✨ Quick Tools</h1>" +
+"  <div class='close-btn' onclick='closeWindow()'>✕</div>" +
+"</div>" +
+"<div class='tabs'>" +
+"  <div class='tab active' onclick='showTab(this,\"tools\")'>🔧 Tools</div>" +
+"  <div class='tab' onclick='showTab(this,\"emoji\")'>😀 Emoji</div>" +
+"  <div class='tab' onclick='showTab(this,\"clip\")'>📋 Clip</div>" +
+"</div>" +
+"<div class='content' id='content'></div>" +
+"<script>" +
+"var currentTab='tools';" +
+"function showTab(el,tab){" +
+"  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));" +
+"  el.classList.add('active');" +
+"  currentTab=tab;" +
+"  render();" +
+"}" +
+"function render(){" +
+"  var html='';" +
+"  if(currentTab==='tools'){" +
+"    html='<div class=\"grid\">';" +
+"    var tools=[" +
+"      ['🎨','Themes'],['🔤','Fonts'],['📐','Size'],['🌐','Language']," +
+"      ['🔊','Sound'],['📳','Vibrate'],['⌨️','Layout'],['☁️','Sync']," +
+"      ['🤖','AI'],['📝','Notes'],['🔍','Search'],['⚙️','Settings']" +
+"    ];" +
+"    tools.forEach(function(t){" +
+"      html+='<div class=\"item\" onclick=\"toolClick(\\''+t[1]+'\\')\"><span class=\"icon\">'+t[0]+'</span><span class=\"label\">'+t[1]+'</span></div>';" +
+"    });" +
+"    html+='</div>';" +
+"  }else if(currentTab==='emoji'){" +
+"    var categories={" +
+"      'Smileys':['😀','😃','😄','😁','😅','😂','🤣','😊','😇','🥰','😍','🤩','😘','😗','😚','😋','😛','😜','🤪','😝','🤑','🤗','🤭','🤫','🤔','🤐','🤨','😐','😑','😶']," +
+"      'Gestures':['👍','👎','👊','✊','🤛','🤜','👏','🙌','👐','🤲','🤝','🙏','✌️','🤞','🤟','🤘','👌','🤌','🤏','👈','👉','👆','👇','☝️','✋','🤚','🖐️','🖖','👋','🤙']," +
+"      'Hearts':['❤️','🧡','💛','💚','💙','💜','🖤','🤍','🤎','💔','❣️','💕','💞','💓','💗','💖','💘','💝','💟']" +
+"    };" +
+"    for(var cat in categories){" +
+"      html+='<div class=\"section-title\">'+cat+'</div><div class=\"emoji-grid\">';" +
+"      categories[cat].forEach(function(e){" +
+"        html+='<div class=\"emoji\" onclick=\"typeEmoji(\\''+e+'\\')\">' +e+'</div>';" +
+"      });" +
+"      html+='</div>';" +
+"    }" +
+"  }else if(currentTab==='clip'){" +
+"    html='<div class=\"section-title\">Recent Clips</div>';" +
+"    html+='<div style=\"padding:20px;text-align:center;color:rgba(255,255,255,0.5)\">No clipboard history yet.<br><br>Copy some text to see it here!</div>';" +
+"  }" +
+"  document.getElementById('content').innerHTML=html;" +
+"}" +
+"function toolClick(name){" +
+"  NativeBridge.showToast(name+' clicked!');" +
+"}" +
+"function typeEmoji(emoji){" +
+"  NativeBridge.typeText(emoji);" +
+"  NativeBridge.showToast('Emoji: '+emoji);" +
+"}" +
+"function closeWindow(){" +
+"  NativeBridge.close();" +
+"}" +
+"render();" +
+"</script></body></html>";
+    }
+    
+    // JavaScript Bridge
+    public class WebBridge {
+        @JavascriptInterface
+        public void showToast(String msg) {
+            new android.os.Handler(android.os.Looper.getMainLooper()).post(() -> {
+                Toast.makeText(FloatingWindowService.this, msg, Toast.LENGTH_SHORT).show();
+            });
         }
         
-        scroll.addView(content);
+        @JavascriptInterface
+        public void typeText(String text) {
+            // Send broadcast to keyboard to type this text
+            Intent intent = new Intent("com.keybord.app.TYPE_TEXT");
+            intent.putExtra("text", text);
+            sendBroadcast(intent);
+        }
         
-        // Build container
-        container.addView(header);
-        container.addView(scroll);
-        
-        return container;
-    }
-    
-    private View createToolButton(String icon, String title, String subtitle) {
-        LinearLayout btn = new LinearLayout(this);
-        btn.setOrientation(LinearLayout.HORIZONTAL);
-        btn.setGravity(Gravity.CENTER_VERTICAL);
-        btn.setPadding(dp(12), dp(14), dp(12), dp(14));
-        btn.setBackgroundColor(Color.parseColor("#252545"));
-        
-        LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        btnParams.setMargins(0, dp(4), 0, dp(4));
-        btn.setLayoutParams(btnParams);
-        
-        // Icon
-        TextView iconView = new TextView(this);
-        iconView.setText(icon);
-        iconView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
-        iconView.setPadding(0, 0, dp(16), 0);
-        
-        // Text container
-        LinearLayout textContainer = new LinearLayout(this);
-        textContainer.setOrientation(LinearLayout.VERTICAL);
-        textContainer.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        
-        TextView titleView = new TextView(this);
-        titleView.setText(title);
-        titleView.setTextColor(Color.WHITE);
-        titleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        titleView.setTypeface(null, Typeface.BOLD);
-        
-        TextView subtitleView = new TextView(this);
-        subtitleView.setText(subtitle);
-        subtitleView.setTextColor(Color.parseColor("#9ca3af"));
-        subtitleView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        
-        textContainer.addView(titleView);
-        textContainer.addView(subtitleView);
-        
-        // Arrow
-        TextView arrow = new TextView(this);
-        arrow.setText("›");
-        arrow.setTextColor(Color.parseColor("#6b7280"));
-        arrow.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
-        
-        btn.addView(iconView);
-        btn.addView(textContainer);
-        btn.addView(arrow);
-        
-        btn.setOnClickListener(v -> {
-            // Show toast for now - you can add real functionality later
-            android.widget.Toast.makeText(this, icon + " " + title + " clicked!", android.widget.Toast.LENGTH_SHORT).show();
-        });
-        
-        return btn;
-    }
-    
-    private int dp(int value) {
-        return Math.round(value * getResources().getDisplayMetrics().density);
+        @JavascriptInterface
+        public void close() {
+            stopSelf();
+        }
     }
 
     @Override
     public void onDestroy() {
         super.onDestroy();
         if (floatingView != null && windowManager != null) {
-            windowManager.removeView(floatingView);
+            try {
+                windowManager.removeView(floatingView);
+            } catch (Exception e) {}
             floatingView = null;
         }
     }

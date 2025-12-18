@@ -30,45 +30,44 @@ import android.widget.Toast;
 public class FastKeyboardService extends InputMethodService {
 
     // ══════════════════════════════════════════════════════════════════════
-    // 🎨 CUSTOMIZATION - Colors
+    // 🎨 SETTINGS - මේවා SharedPreferences එකෙන් load වෙනවා
     // ══════════════════════════════════════════════════════════════════════
-    private String COLOR_BACKGROUND = "#1a1a2e";
-    private String COLOR_TOOLBAR = "#141424";
-    private String COLOR_KEY_NORMAL = "#3d3d5c";
-    private String COLOR_KEY_SPECIAL = "#252540";
-    private String COLOR_KEY_ENTER = "#2563eb";
-    private String COLOR_KEY_SPACE = "#303050";
-    private String COLOR_TEXT = "#FFFFFF";
-    private String COLOR_TEXT_SECONDARY = "#9ca3af";
-    private String COLOR_ACCENT = "#3b82f6";
-    private String COLOR_EMOJI_BAR = "#1e1e38";
-    private String COLOR_OPTIONS_BG = "#12121f";
+    private String colorBackground = "#1a1a2e";
+    private String colorToolbar = "#141424";
+    private String colorKeyNormal = "#3d3d5c";
+    private String colorKeySpecial = "#252540";
+    private String colorKeyEnter = "#2563eb";
+    private String colorAccent = "#3b82f6";
+    private String colorText = "#FFFFFF";
+    private String colorTextSecondary = "#9ca3af";
+    
+    private boolean vibrationEnabled = true;
+    private boolean soundEnabled = false;
+    private boolean showToolbar = true;
+    private boolean showEmojiBar = true;
     
     // ══════════════════════════════════════════════════════════════════════
-    // 📏 CUSTOMIZATION - Sizes
+    // 📏 SIZES
     // ══════════════════════════════════════════════════════════════════════
     private static final int TOOLBAR_HEIGHT = 44;
     private static final int EMOJI_BAR_HEIGHT = 40;
     private static final int KEYBOARD_HEIGHT = 240;
     private static final int OPTIONS_PANEL_HEIGHT = 300;
-    private static final int KEY_RADIUS = 8;
-    private static final int KEY_MARGIN = 3;
-    private static final int KEY_TEXT_SIZE = 22;
     
     // ══════════════════════════════════════════════════════════════════════
-    // 🔧 Toolbar Buttons
+    // 🔧 Toolbar Buttons - action names must match handler
     // ══════════════════════════════════════════════════════════════════════
     private static final String[][] TOOLBAR_BUTTONS = {
-        {"🎤", "Voice"},
-        {"📋", "Clipboard"},
-        {"😀", "Emoji"},
-        {"🎨", "Themes"},
-        {"⚙️", "Settings"},
-        {"📱", "More"}
+        {"🎤", "voice"},
+        {"📋", "clipboard"},
+        {"😀", "emoji"},
+        {"🎨", "themes"},
+        {"⚙️", "settings"},
+        {"✨", "popup"}  // This opens floating window
     };
     
     // ══════════════════════════════════════════════════════════════════════
-    // 😀 Quick Emoji Bar
+    // 😀 Quick Emojis
     // ══════════════════════════════════════════════════════════════════════
     private static final String[] QUICK_EMOJIS = {
         "😀", "😂", "🥰", "😎", "🤔", "👍", "❤️", "🔥", "✨", "🎉",
@@ -79,22 +78,19 @@ public class FastKeyboardService extends InputMethodService {
     // 📱 Options Panel Items
     // ══════════════════════════════════════════════════════════════════════
     private static final String[][] OPTIONS_ITEMS = {
-        {"🌐", "Languages", "Switch keyboard language"},
-        {"🎨", "Themes", "Customize keyboard appearance"},
-        {"📐", "Resize", "Change keyboard size"},
-        {"🔊", "Sound", "Key press sounds"},
-        {"📳", "Vibration", "Haptic feedback settings"},
-        {"🔤", "Fonts", "Change font style"},
-        {"⌨️", "Layout", "Keyboard layout options"},
-        {"☁️", "Backup", "Backup & restore settings"},
-        {"🤖", "AI Mode", "Enable AI suggestions"},
-        {"📝", "Text Tools", "Text editing tools"},
-        {"🔒", "Privacy", "Privacy settings"},
-        {"ℹ️", "About", "App information"}
+        {"🌐", "Languages"},
+        {"🎨", "Themes"},
+        {"📐", "Resize"},
+        {"🔊", "Sound"},
+        {"📳", "Vibration"},
+        {"🔤", "Fonts"},
+        {"⌨️", "Layout"},
+        {"☁️", "Backup"},
+        {"🤖", "AI Mode"}
     };
     
     // ══════════════════════════════════════════════════════════════════════
-    // ⌨️ Keyboard Layouts
+    // ⌨️ Layouts
     // ══════════════════════════════════════════════════════════════════════
     private static final String[][] LAYOUT_LETTERS = {
         {"q", "w", "e", "r", "t", "y", "u", "i", "o", "p"},
@@ -118,7 +114,7 @@ public class FastKeyboardService extends InputMethodService {
     };
 
     // ══════════════════════════════════════════════════════════════════════
-    // 🔧 Internal State
+    // 🔧 Internal
     // ══════════════════════════════════════════════════════════════════════
     private LinearLayout mainContainer;
     private LinearLayout toolbarView;
@@ -129,6 +125,7 @@ public class FastKeyboardService extends InputMethodService {
     private Handler handler;
     private Vibrator vibrator;
     private SharedPreferences prefs;
+    private BroadcastReceiver settingsReceiver;
     
     private boolean isShift = false;
     private boolean isCaps = false;
@@ -137,9 +134,6 @@ public class FastKeyboardService extends InputMethodService {
     private boolean isOptionsVisible = false;
     private boolean isRepeating = false;
     private Runnable repeatRunnable;
-    
-    // Settings receiver
-    private BroadcastReceiver settingsReceiver;
 
     // ══════════════════════════════════════════════════════════════════════
     // 🚀 Lifecycle
@@ -149,28 +143,38 @@ public class FastKeyboardService extends InputMethodService {
     public void onCreate() {
         super.onCreate();
         handler = new Handler(Looper.getMainLooper());
+        
         try {
             vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-            prefs = getSharedPreferences("keyboard_settings", MODE_PRIVATE);
-            loadSettings();
-            registerSettingsReceiver();
         } catch (Exception e) {}
+        
+        prefs = getSharedPreferences("keyboard_settings", MODE_PRIVATE);
+        loadSettings();
+        registerSettingsReceiver();
     }
     
     private void loadSettings() {
-        COLOR_BACKGROUND = prefs.getString("color_background", COLOR_BACKGROUND);
-        COLOR_ACCENT = prefs.getString("color_accent", COLOR_ACCENT);
-        // Add more settings as needed
+        // Load all settings from SharedPreferences
+        colorBackground = prefs.getString("color_background", "#1a1a2e");
+        colorAccent = prefs.getString("color_accent", "#3b82f6");
+        colorKeyEnter = prefs.getString("color_accent", "#2563eb");
+        
+        vibrationEnabled = prefs.getBoolean("vibration", true);
+        soundEnabled = prefs.getBoolean("sound", false);
+        showToolbar = prefs.getBoolean("toolbar", true);
+        showEmojiBar = prefs.getBoolean("emoji_bar", true);
     }
     
     private void registerSettingsReceiver() {
         settingsReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
+                // Reload settings and refresh UI
                 loadSettings();
-                refreshAll();
+                handler.post(() -> rebuildKeyboard());
             }
         };
+        
         IntentFilter filter = new IntentFilter("com.keybord.app.SETTINGS_UPDATED");
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(settingsReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
@@ -178,28 +182,64 @@ public class FastKeyboardService extends InputMethodService {
             registerReceiver(settingsReceiver, filter);
         }
     }
+    
+    private void rebuildKeyboard() {
+        if (mainContainer != null) {
+            mainContainer.removeAllViews();
+            
+            if (showToolbar) {
+                toolbarView = buildToolbar();
+                mainContainer.addView(toolbarView);
+            }
+            
+            if (showEmojiBar) {
+                emojiBarView = buildEmojiBar();
+                mainContainer.addView(emojiBarView);
+            }
+            
+            keyboardView = buildKeyboard();
+            mainContainer.addView(keyboardView);
+            
+            // Recalculate height
+            int height = KEYBOARD_HEIGHT;
+            if (showToolbar) height += TOOLBAR_HEIGHT;
+            if (showEmojiBar) height += EMOJI_BAR_HEIGHT;
+            
+            mainContainer.getLayoutParams().height = dp(height);
+            mainContainer.setBackgroundColor(Color.parseColor(colorBackground));
+            mainContainer.requestLayout();
+        }
+    }
 
     @Override
     public View onCreateInputView() {
         mainContainer = new LinearLayout(this);
         mainContainer.setOrientation(LinearLayout.VERTICAL);
-        mainContainer.setBackgroundColor(Color.parseColor(COLOR_BACKGROUND));
+        mainContainer.setBackgroundColor(Color.parseColor(colorBackground));
         
-        int totalHeight = TOOLBAR_HEIGHT + EMOJI_BAR_HEIGHT + KEYBOARD_HEIGHT;
+        int totalHeight = KEYBOARD_HEIGHT;
+        if (showToolbar) totalHeight += TOOLBAR_HEIGHT;
+        if (showEmojiBar) totalHeight += EMOJI_BAR_HEIGHT;
+        
         mainContainer.setLayoutParams(new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, dp(totalHeight)
         ));
         
-        // Build all sections
-        toolbarView = buildToolbar();
-        emojiBarView = buildEmojiBar();
-        keyboardView = buildKeyboard();
-        optionsPanelView = buildOptionsPanel();
+        // Build sections
+        if (showToolbar) {
+            toolbarView = buildToolbar();
+            mainContainer.addView(toolbarView);
+        }
         
-        // Add views
-        mainContainer.addView(toolbarView);
-        mainContainer.addView(emojiBarView);
+        if (showEmojiBar) {
+            emojiBarView = buildEmojiBar();
+            mainContainer.addView(emojiBarView);
+        }
+        
+        keyboardView = buildKeyboard();
         mainContainer.addView(keyboardView);
+        
+        optionsPanelView = buildOptionsPanel();
         
         return mainContainer;
     }
@@ -211,7 +251,7 @@ public class FastKeyboardService extends InputMethodService {
     private LinearLayout buildToolbar() {
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.HORIZONTAL);
-        toolbar.setBackgroundColor(Color.parseColor(COLOR_TOOLBAR));
+        toolbar.setBackgroundColor(Color.parseColor(colorToolbar));
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
         toolbar.setPadding(dp(8), 0, dp(8), 0);
         toolbar.setLayoutParams(new LinearLayout.LayoutParams(
@@ -232,7 +272,9 @@ public class FastKeyboardService extends InputMethodService {
         btn.setGravity(Gravity.CENTER);
         btn.setPadding(dp(12), dp(8), dp(12), dp(8));
         
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f
+        );
         btn.setLayoutParams(params);
         
         btn.setOnClickListener(v -> {
@@ -245,36 +287,47 @@ public class FastKeyboardService extends InputMethodService {
     
     private void handleToolbarAction(String action) {
         switch (action) {
-            case "Voice":
+            case "voice":
                 showToast("🎤 Voice Input - Coming Soon!");
                 break;
-            case "Clipboard":
-                showToast("📋 Clipboard Manager - Coming Soon!");
+            case "clipboard":
+                showToast("📋 Clipboard Manager");
+                openFloatingWindow("clipboard");
                 break;
-            case "Emoji":
-                showToast("😀 Full Emoji Panel - Coming Soon!");
+            case "emoji":
+                showToast("😀 Emoji Panel");
+                openFloatingWindow("emoji");
                 break;
-            case "Themes":
-                showToast("🎨 Theme Selector - Coming Soon!");
+            case "themes":
+                showToast("🎨 Theme Selector");
+                openFloatingWindow("themes");
                 break;
-            case "Settings":
-                showToast("⚙️ Opening Settings...");
-                openSettingsApp();
-                break;
-            case "More":
+            case "settings":
                 toggleOptionsPanel();
+                break;
+            case "popup":
+                openFloatingWindow("tools");
                 break;
         }
     }
     
-    private void openSettingsApp() {
-        Intent intent = new Intent();
-        intent.setClassName(getPackageName(), getPackageName() + ".MainActivity");
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    // ══════════════════════════════════════════════════════════════════════
+    // 🪟 FLOATING WINDOW - Keyboard එකෙන් open කරනවා
+    // ══════════════════════════════════════════════════════════════════════
+    
+    private void openFloatingWindow(String mode) {
         try {
-            startActivity(intent);
+            Intent intent = new Intent(this, FloatingWindowService.class);
+            intent.putExtra("mode", mode);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(intent);
+            } else {
+                startService(intent);
+            }
         } catch (Exception e) {
-            showToast("Cannot open settings");
+            showToast("Cannot open floating window. Check overlay permission.");
         }
     }
 
@@ -285,7 +338,7 @@ public class FastKeyboardService extends InputMethodService {
     private LinearLayout buildEmojiBar() {
         LinearLayout container = new LinearLayout(this);
         container.setOrientation(LinearLayout.HORIZONTAL);
-        container.setBackgroundColor(Color.parseColor(COLOR_EMOJI_BAR));
+        container.setBackgroundColor(Color.parseColor("#1e1e38"));
         container.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(EMOJI_BAR_HEIGHT)
         ));
@@ -302,28 +355,21 @@ public class FastKeyboardService extends InputMethodService {
         emojiRow.setGravity(Gravity.CENTER_VERTICAL);
         
         for (String emoji : QUICK_EMOJIS) {
-            emojiRow.addView(createEmojiButton(emoji));
+            TextView btn = new TextView(this);
+            btn.setText(emoji);
+            btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+            btn.setGravity(Gravity.CENTER);
+            btn.setPadding(dp(10), dp(4), dp(10), dp(4));
+            btn.setOnClickListener(v -> {
+                doVibrate();
+                typeText(emoji);
+            });
+            emojiRow.addView(btn);
         }
         
         scroll.addView(emojiRow);
         container.addView(scroll);
-        
         return container;
-    }
-    
-    private View createEmojiButton(String emoji) {
-        TextView btn = new TextView(this);
-        btn.setText(emoji);
-        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
-        btn.setGravity(Gravity.CENTER);
-        btn.setPadding(dp(10), dp(4), dp(10), dp(4));
-        
-        btn.setOnClickListener(v -> {
-            doVibrate();
-            typeText(emoji);
-        });
-        
-        return btn;
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -332,7 +378,7 @@ public class FastKeyboardService extends InputMethodService {
     
     private ScrollView buildOptionsPanel() {
         ScrollView scroll = new ScrollView(this);
-        scroll.setBackgroundColor(Color.parseColor(COLOR_OPTIONS_BG));
+        scroll.setBackgroundColor(Color.parseColor("#12121f"));
         scroll.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(OPTIONS_PANEL_HEIGHT)
         ));
@@ -340,30 +386,66 @@ public class FastKeyboardService extends InputMethodService {
         
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(16), dp(16), dp(16), dp(16));
+        content.setPadding(dp(12), dp(12), dp(12), dp(12));
         
         // Title
         TextView title = new TextView(this);
         title.setText("⚡ Quick Options");
         title.setTextColor(Color.WHITE);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
         title.setTypeface(null, Typeface.BOLD);
-        title.setPadding(0, 0, 0, dp(16));
+        title.setPadding(dp(4), 0, 0, dp(12));
         content.addView(title);
         
-        // Options grid
+        // Grid
         LinearLayout grid = new LinearLayout(this);
         grid.setOrientation(LinearLayout.VERTICAL);
         
         for (int i = 0; i < OPTIONS_ITEMS.length; i += 3) {
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setLayoutParams(new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
             
             for (int j = 0; j < 3 && (i + j) < OPTIONS_ITEMS.length; j++) {
-                row.addView(createOptionItem(OPTIONS_ITEMS[i + j]));
+                String[] item = OPTIONS_ITEMS[i + j];
+                
+                LinearLayout btn = new LinearLayout(this);
+                btn.setOrientation(LinearLayout.VERTICAL);
+                btn.setGravity(Gravity.CENTER);
+                btn.setPadding(dp(8), dp(12), dp(8), dp(12));
+                
+                GradientDrawable bg = new GradientDrawable();
+                bg.setColor(Color.parseColor("#2a2a4a"));
+                bg.setCornerRadius(dp(10));
+                btn.setBackground(bg);
+                
+                LinearLayout.LayoutParams btnParams = new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f
+                );
+                btnParams.setMargins(dp(4), dp(4), dp(4), dp(4));
+                btn.setLayoutParams(btnParams);
+                
+                TextView icon = new TextView(this);
+                icon.setText(item[0]);
+                icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+                icon.setGravity(Gravity.CENTER);
+                
+                TextView label = new TextView(this);
+                label.setText(item[1]);
+                label.setTextColor(Color.WHITE);
+                label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+                label.setGravity(Gravity.CENTER);
+                label.setPadding(0, dp(4), 0, 0);
+                
+                btn.addView(icon);
+                btn.addView(label);
+                
+                final String itemName = item[1];
+                btn.setOnClickListener(v -> {
+                    doVibrate();
+                    showToast(item[0] + " " + itemName);
+                });
+                
+                row.addView(btn);
             }
             
             grid.addView(row);
@@ -374,94 +456,48 @@ public class FastKeyboardService extends InputMethodService {
         // Back button
         TextView backBtn = new TextView(this);
         backBtn.setText("⌨️ Back to Keyboard");
-        backBtn.setTextColor(Color.parseColor(COLOR_ACCENT));
-        backBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        backBtn.setTextColor(Color.parseColor(colorAccent));
+        backBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         backBtn.setGravity(Gravity.CENTER);
-        backBtn.setPadding(dp(16), dp(16), dp(16), dp(16));
-        backBtn.setOnClickListener(v -> toggleOptionsPanel());
+        backBtn.setPadding(dp(12), dp(14), dp(12), dp(14));
         
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT
         );
-        backParams.setMargins(0, dp(16), 0, 0);
+        backParams.setMargins(0, dp(12), 0, 0);
         backBtn.setLayoutParams(backParams);
+        backBtn.setOnClickListener(v -> toggleOptionsPanel());
         
         content.addView(backBtn);
         scroll.addView(content);
-        
         return scroll;
-    }
-    
-    private View createOptionItem(String[] item) {
-        LinearLayout container = new LinearLayout(this);
-        container.setOrientation(LinearLayout.VERTICAL);
-        container.setGravity(Gravity.CENTER);
-        container.setPadding(dp(8), dp(12), dp(8), dp(12));
-        
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        container.setLayoutParams(params);
-        
-        // Icon
-        TextView icon = new TextView(this);
-        icon.setText(item[0]);
-        icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
-        icon.setGravity(Gravity.CENTER);
-        
-        // Label
-        TextView label = new TextView(this);
-        label.setText(item[1]);
-        label.setTextColor(Color.WHITE);
-        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        label.setGravity(Gravity.CENTER);
-        label.setPadding(0, dp(4), 0, 0);
-        
-        container.addView(icon);
-        container.addView(label);
-        
-        // Background
-        GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#2a2a4a"));
-        bg.setCornerRadius(dp(12));
-        container.setBackground(bg);
-        
-        LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        containerParams.setMargins(dp(4), dp(4), dp(4), dp(4));
-        container.setLayoutParams(containerParams);
-        
-        container.setOnClickListener(v -> {
-            doVibrate();
-            showToast(item[0] + " " + item[1] + "\n" + item[2]);
-        });
-        
-        return container;
     }
     
     private void toggleOptionsPanel() {
         isOptionsVisible = !isOptionsVisible;
         
         if (isOptionsVisible) {
-            // Hide keyboard, show options
-            keyboardView.setVisibility(View.GONE);
-            emojiBarView.setVisibility(View.GONE);
+            if (keyboardView != null) keyboardView.setVisibility(View.GONE);
+            if (emojiBarView != null) emojiBarView.setVisibility(View.GONE);
             
             if (optionsPanelView.getParent() == null) {
                 mainContainer.addView(optionsPanelView);
             }
             optionsPanelView.setVisibility(View.VISIBLE);
             
-            // Resize container
-            mainContainer.getLayoutParams().height = dp(TOOLBAR_HEIGHT + OPTIONS_PANEL_HEIGHT);
-            mainContainer.requestLayout();
+            int height = TOOLBAR_HEIGHT + OPTIONS_PANEL_HEIGHT;
+            mainContainer.getLayoutParams().height = dp(height);
         } else {
-            // Show keyboard, hide options
             optionsPanelView.setVisibility(View.GONE);
-            emojiBarView.setVisibility(View.VISIBLE);
-            keyboardView.setVisibility(View.VISIBLE);
+            if (emojiBarView != null && showEmojiBar) emojiBarView.setVisibility(View.VISIBLE);
+            if (keyboardView != null) keyboardView.setVisibility(View.VISIBLE);
             
-            // Resize container
-            mainContainer.getLayoutParams().height = dp(TOOLBAR_HEIGHT + EMOJI_BAR_HEIGHT + KEYBOARD_HEIGHT);
-            mainContainer.requestLayout();
+            int height = KEYBOARD_HEIGHT;
+            if (showToolbar) height += TOOLBAR_HEIGHT;
+            if (showEmojiBar) height += EMOJI_BAR_HEIGHT;
+            mainContainer.getLayoutParams().height = dp(height);
         }
+        mainContainer.requestLayout();
     }
 
     // ══════════════════════════════════════════════════════════════════════
@@ -471,7 +507,7 @@ public class FastKeyboardService extends InputMethodService {
     private LinearLayout buildKeyboard() {
         LinearLayout kb = new LinearLayout(this);
         kb.setOrientation(LinearLayout.VERTICAL);
-        kb.setBackgroundColor(Color.parseColor(COLOR_BACKGROUND));
+        kb.setBackgroundColor(Color.parseColor(colorBackground));
         kb.setPadding(dp(4), dp(6), dp(4), dp(10));
         kb.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(KEYBOARD_HEIGHT)
@@ -517,24 +553,21 @@ public class FastKeyboardService extends InputMethodService {
         tv.setGravity(Gravity.CENTER);
         tv.setTypeface(Typeface.DEFAULT_BOLD);
         
-        // Text styling
         boolean isSpecial = isSpecialKey(key);
-        tv.setTextColor(Color.parseColor(isSpecial ? COLOR_TEXT_SECONDARY : COLOR_TEXT));
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, isSpecial && !isIconKey(key) ? 14 : KEY_TEXT_SIZE);
+        tv.setTextColor(Color.parseColor(isSpecial ? colorTextSecondary : colorText));
+        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, isSpecial && !isIconKey(key) ? 14 : 22);
         
         if (key.equals("↵")) tv.setTextColor(Color.WHITE);
-        if ((key.equals("⇧") && (isShift || isCaps))) tv.setTextColor(Color.WHITE);
+        if (key.equals("⇧") && (isShift || isCaps)) tv.setTextColor(Color.WHITE);
         
-        // Layout
         float weight = getKeyWeight(key);
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, weight);
-        params.setMargins(dp(KEY_MARGIN), 0, dp(KEY_MARGIN), 0);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.MATCH_PARENT, weight
+        );
+        params.setMargins(dp(3), 0, dp(3), 0);
         tv.setLayoutParams(params);
         
-        // Background
         tv.setBackground(createKeyBg(key));
-        
-        // Touch
         tv.setOnTouchListener((v, e) -> handleKeyTouch(v, e, key));
         tv.setClickable(true);
         
@@ -572,19 +605,19 @@ public class FastKeyboardService extends InputMethodService {
     
     private GradientDrawable createKeyBg(String key) {
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(dp(KEY_RADIUS));
+        bg.setCornerRadius(dp(8));
         
         String color;
         switch (key) {
-            case "↵": color = COLOR_KEY_ENTER; break;
+            case "↵": color = colorKeyEnter; break;
             case "⇧": 
                 if (isCaps) color = "#10b981";
-                else if (isShift) color = COLOR_ACCENT;
-                else color = COLOR_KEY_SPECIAL;
+                else if (isShift) color = colorAccent;
+                else color = colorKeySpecial;
                 break;
-            case "⌫": case "123": case "ABC": case "#+=": color = COLOR_KEY_SPECIAL; break;
-            case "SPACE": color = COLOR_KEY_SPACE; break;
-            default: color = COLOR_KEY_NORMAL;
+            case "⌫": case "123": case "ABC": case "#+=": color = colorKeySpecial; break;
+            case "SPACE": color = "#303050"; break;
+            default: color = colorKeyNormal;
         }
         
         bg.setColor(Color.parseColor(color));
@@ -691,30 +724,15 @@ public class FastKeyboardService extends InputMethodService {
             }
         }
     }
-    
-    private void refreshAll() {
-        if (mainContainer != null) {
-            // Rebuild everything with new settings
-            mainContainer.removeAllViews();
-            
-            toolbarView = buildToolbar();
-            emojiBarView = buildEmojiBar();
-            keyboardView = buildKeyboard();
-            optionsPanelView = buildOptionsPanel();
-            
-            mainContainer.addView(toolbarView);
-            mainContainer.addView(emojiBarView);
-            mainContainer.addView(keyboardView);
-        }
-    }
 
     // ══════════════════════════════════════════════════════════════════════
     // 🔧 Utilities
     // ══════════════════════════════════════════════════════════════════════
     
     private void doVibrate() {
+        if (!vibrationEnabled || vibrator == null) return;
         try {
-            if (vibrator != null && vibrator.hasVibrator()) {
+            if (vibrator.hasVibrator()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     vibrator.vibrate(VibrationEffect.createOneShot(5, VibrationEffect.DEFAULT_AMPLITUDE));
                 } else {
@@ -732,13 +750,11 @@ public class FastKeyboardService extends InputMethodService {
         return Math.round(v * getResources().getDisplayMetrics().density);
     }
 
-    // ══════════════════════════════════════════════════════════════════════
-    // 🔄 Lifecycle
-    // ══════════════════════════════════════════════════════════════════════
-    
     @Override
     public void onStartInputView(EditorInfo info, boolean restarting) {
         super.onStartInputView(info, restarting);
+        loadSettings(); // Reload settings each time keyboard opens
+        
         isShift = false;
         isCaps = false;
         isOptionsVisible = false;
@@ -747,27 +763,19 @@ public class FastKeyboardService extends InputMethodService {
         isNumbers = (inputClass == EditorInfo.TYPE_CLASS_NUMBER || inputClass == EditorInfo.TYPE_CLASS_PHONE);
         isSymbols = false;
         
-        // Ensure keyboard is visible, not options
         if (optionsPanelView != null) optionsPanelView.setVisibility(View.GONE);
-        if (emojiBarView != null) emojiBarView.setVisibility(View.VISIBLE);
+        if (emojiBarView != null && showEmojiBar) emojiBarView.setVisibility(View.VISIBLE);
         if (keyboardView != null) keyboardView.setVisibility(View.VISIBLE);
         
-        if (mainContainer != null) {
-            mainContainer.getLayoutParams().height = dp(TOOLBAR_HEIGHT + EMOJI_BAR_HEIGHT + KEYBOARD_HEIGHT);
-            mainContainer.requestLayout();
-        }
-        
-        refreshKeyboard();
+        rebuildKeyboard();
     }
     
     @Override
     public void onDestroy() {
         stopRepeat();
-        if (settingsReceiver != null) {
-            try {
-                unregisterReceiver(settingsReceiver);
-            } catch (Exception e) {}
-        }
+        try {
+            if (settingsReceiver != null) unregisterReceiver(settingsReceiver);
+        } catch (Exception e) {}
         super.onDestroy();
     }
 }
