@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>KeyBord Settings</title>
     <style>
         * {
@@ -13,51 +13,115 @@
         }
         
         body {
-            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
             background: linear-gradient(180deg, #0f0f1a, #1a1a2e);
             color: #fff;
             min-height: 100vh;
-            padding: 20px;
+            padding: 16px;
+            padding-top: max(16px, env(safe-area-inset-top));
+            padding-bottom: max(16px, env(safe-area-inset-bottom));
         }
         
         .header {
             text-align: center;
-            padding: 30px 0;
+            padding: 24px 0;
+        }
+        
+        .header .logo {
+            font-size: 56px;
+            margin-bottom: 12px;
         }
         
         .header h1 {
-            font-size: 28px;
-            margin-bottom: 8px;
+            font-size: 26px;
+            font-weight: 700;
+            margin-bottom: 6px;
         }
         
         .header p {
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 14px;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+        }
+        
+        .status-item .icon {
+            font-size: 24px;
+            margin-bottom: 6px;
+        }
+        
+        .status-item .label {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+        }
+        
+        .status-item .value {
+            font-size: 13px;
+            font-weight: 600;
+            margin-top: 4px;
+        }
+        
+        .status-item .value.success {
+            color: #10b981;
+        }
+        
+        .status-item .value.warning {
+            color: #f59e0b;
+        }
+        
+        .status-item .value.error {
+            color: #ef4444;
         }
         
         .card {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 16px;
-            padding: 20px;
+            padding: 18px;
             margin-bottom: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
         
         .card h2 {
-            font-size: 16px;
-            margin-bottom: 16px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 14px;
             color: #3b82f6;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
         
         .btn {
-            display: block;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
             width: 100%;
-            padding: 16px;
+            padding: 15px 20px;
             border: none;
             border-radius: 12px;
-            font-size: 16px;
+            font-size: 15px;
             font-weight: 600;
             cursor: pointer;
-            margin-bottom: 12px;
-            text-align: center;
+            margin-bottom: 10px;
+            transition: transform 0.1s, opacity 0.1s;
+        }
+        
+        .btn:active {
+            transform: scale(0.98);
+            opacity: 0.9;
         }
         
         .btn-primary {
@@ -70,9 +134,30 @@
             color: #fff;
         }
         
+        .btn-accent {
+            background: linear-gradient(180deg, #8b5cf6, #7c3aed);
+            color: #fff;
+        }
+        
+        .btn-success {
+            background: linear-gradient(180deg, #10b981, #059669);
+            color: #fff;
+        }
+        
+        .color-section {
+            margin-bottom: 16px;
+        }
+        
+        .color-section label {
+            display: block;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 10px;
+        }
+        
         .color-grid {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(6, 1fr);
             gap: 10px;
         }
         
@@ -81,31 +166,48 @@
             border-radius: 12px;
             border: 3px solid transparent;
             cursor: pointer;
+            transition: transform 0.15s, border-color 0.15s;
+        }
+        
+        .color-btn:active {
+            transform: scale(0.9);
         }
         
         .color-btn.selected {
             border-color: #fff;
+            transform: scale(1.1);
         }
         
         .setting-row {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         }
         
         .setting-row:last-child {
             border-bottom: none;
         }
         
+        .setting-row .label {
+            font-size: 15px;
+        }
+        
+        .setting-row .sublabel {
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+            margin-top: 2px;
+        }
+        
         .toggle {
-            width: 50px;
-            height: 28px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 14px;
+            width: 52px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 15px;
             position: relative;
             cursor: pointer;
+            transition: background 0.2s;
         }
         
         .toggle.active {
@@ -115,122 +217,389 @@
         .toggle::after {
             content: '';
             position: absolute;
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             background: #fff;
             border-radius: 50%;
             top: 3px;
             left: 3px;
-            transition: 0.2s;
+            transition: left 0.2s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
         .toggle.active::after {
             left: 25px;
         }
         
+        .test-section {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+        }
+        
         .test-input {
             width: 100%;
-            padding: 16px;
+            padding: 14px 16px;
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
+            border-radius: 10px;
             color: #fff;
             font-size: 16px;
-            margin-top: 12px;
+            margin-top: 10px;
         }
         
         .test-input:focus {
             outline: none;
             border-color: #3b82f6;
         }
+        
+        .test-input::placeholder {
+            color: rgba(255, 255, 255, 0.3);
+        }
+        
+        .footer {
+            text-align: center;
+            padding: 20px;
+            color: rgba(255, 255, 255, 0.3);
+            font-size: 12px;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            padding: 14px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+            max-width: 90%;
+            text-align: center;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
     </style>
 </head>
 
 <body>
     <div class="header">
-        <h1>⌨️ KeyBord</h1>
-        <p>Settings & Customization</p>
+        <div class="logo">⌨️</div>
+        <h1>KeyBord</h1>
+        <p>High-Performance Custom Keyboard</p>
     </div>
 
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            <div class="icon">⚙️</div>
+            <div class="label">Keyboard</div>
+            <div class="value" id="statusEnabled">Checking...</div>
+        </div>
+        <div class="status-item">
+            <div class="icon">✓</div>
+            <div class="label">Status</div>
+            <div class="value" id="statusActive">Checking...</div>
+        </div>
+        <div class="status-item">
+            <div class="icon">🔲</div>
+            <div class="label">Overlay</div>
+            <div class="value" id="statusOverlay">Checking...</div>
+        </div>
+    </div>
+
+    <!-- Setup Card -->
     <div class="card">
         <h2>🚀 Quick Setup</h2>
         <button class="btn btn-primary" onclick="openKeyboardSettings()">
-            Enable KeyBord in Settings
+            ⚙️ Enable in Settings
         </button>
         <button class="btn btn-secondary" onclick="showKeyboardPicker()">
-            Switch to KeyBord
+            🔄 Switch to KeyBord
         </button>
     </div>
 
+    <!-- Floating Window Card -->
     <div class="card">
-        <h2>🎨 Theme Colors</h2>
-        <p style="margin-bottom: 12px; color: rgba(255,255,255,0.6);">Accent Color:</p>
-        <div class="color-grid">
-            <div class="color-btn selected" style="background: #3b82f6;" onclick="setAccentColor('#3b82f6')"></div>
-            <div class="color-btn" style="background: #8b5cf6;" onclick="setAccentColor('#8b5cf6')"></div>
-            <div class="color-btn" style="background: #ec4899;" onclick="setAccentColor('#ec4899')"></div>
-            <div class="color-btn" style="background: #10b981;" onclick="setAccentColor('#10b981')"></div>
-            <div class="color-btn" style="background: #f59e0b;" onclick="setAccentColor('#f59e0b')"></div>
+        <h2>🪟 Floating Tools</h2>
+        <button class="btn btn-accent" onclick="showFloatingWindow()">
+            ✨ Open Floating Panel
+        </button>
+        <button class="btn btn-secondary" onclick="requestOverlayPermission()">
+            🔓 Grant Overlay Permission
+        </button>
+    </div>
+
+    <!-- Theme Card -->
+    <div class="card">
+        <h2>🎨 Theme</h2>
+        <div class="color-section">
+            <label>Accent Color</label>
+            <div class="color-grid">
+                <div class="color-btn selected" style="background:#3b82f6" data-color="#3b82f6"></div>
+                <div class="color-btn" style="background:#8b5cf6" data-color="#8b5cf6"></div>
+                <div class="color-btn" style="background:#ec4899" data-color="#ec4899"></div>
+                <div class="color-btn" style="background:#10b981" data-color="#10b981"></div>
+                <div class="color-btn" style="background:#f59e0b" data-color="#f59e0b"></div>
+                <div class="color-btn" style="background:#ef4444" data-color="#ef4444"></div>
+            </div>
+        </div>
+        <div class="color-section">
+            <label>Background</label>
+            <div class="color-grid">
+                <div class="color-btn selected" style="background:#1a1a2e" data-color="#1a1a2e" data-setting="bg"></div>
+                <div class="color-btn" style="background:#0f172a" data-color="#0f172a" data-setting="bg"></div>
+                <div class="color-btn" style="background:#18181b" data-color="#18181b" data-setting="bg"></div>
+                <div class="color-btn" style="background:#1e1b4b" data-color="#1e1b4b" data-setting="bg"></div>
+                <div class="color-btn" style="background:#14532d" data-color="#14532d" data-setting="bg"></div>
+                <div class="color-btn" style="background:#450a0a" data-color="#450a0a" data-setting="bg"></div>
+            </div>
         </div>
     </div>
 
+    <!-- Settings Card -->
     <div class="card">
         <h2>⚙️ Preferences</h2>
         <div class="setting-row">
-            <span>Vibration</span>
-            <div class="toggle active" onclick="toggleSetting(this, 'vibration')"></div>
+            <div>
+                <div class="label">Vibration</div>
+                <div class="sublabel">Haptic feedback on key press</div>
+            </div>
+            <div class="toggle active" data-setting="vibration" onclick="toggleSetting(this)"></div>
         </div>
         <div class="setting-row">
-            <span>Key Sound</span>
-            <div class="toggle" onclick="toggleSetting(this, 'sound')"></div>
+            <div>
+                <div class="label">Key Sound</div>
+                <div class="sublabel">Play sound on key press</div>
+            </div>
+            <div class="toggle" data-setting="sound" onclick="toggleSetting(this)"></div>
         </div>
         <div class="setting-row">
-            <span>Show Emoji Bar</span>
-            <div class="toggle active" onclick="toggleSetting(this, 'emoji_bar')"></div>
+            <div>
+                <div class="label">Emoji Bar</div>
+                <div class="sublabel">Show quick emoji row</div>
+            </div>
+            <div class="toggle active" data-setting="emoji_bar" onclick="toggleSetting(this)"></div>
+        </div>
+        <div class="setting-row">
+            <div>
+                <div class="label">Toolbar</div>
+                <div class="sublabel">Show top toolbar</div>
+            </div>
+            <div class="toggle active" data-setting="toolbar" onclick="toggleSetting(this)"></div>
         </div>
     </div>
 
+    <!-- Test Card -->
     <div class="card">
         <h2>🧪 Test Keyboard</h2>
-        <p style="color: rgba(255,255,255,0.6);">Tap below to test your keyboard:</p>
-        <input type="text" class="test-input" placeholder="Type something...">
+        <div class="test-section">
+            <label style="font-size:13px;color:rgba(255,255,255,0.6);">Tap below to test your keyboard:</label>
+            <input type="text" class="test-input" placeholder="Type something here...">
+        </div>
     </div>
 
-    <div class="card">
-        <h2>📊 Stats</h2>
-        <div class="setting-row">
-            <span>Keys Typed Today</span>
-            <span style="color: #3b82f6;">1,234</span>
-        </div>
-        <div class="setting-row">
-            <span>Words Typed</span>
-            <span style="color: #3b82f6;">256</span>
-        </div>
+    <div class="footer">
+        KeyBord v1.0.0<br> Made with ❤️
     </div>
+
+    <div class="toast" id="toast"></div>
 
     <script>
+        // ═══════════════════════════════════════════════════════════════════════════
+        // NATIVE BRIDGE WRAPPER
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        const Native = {
+            available: typeof NativeSettings !== 'undefined',
+
+            call: function(method, ...args) {
+                if (this.available && NativeSettings[method]) {
+                    return NativeSettings[method](...args);
+                }
+                console.log('Native call:', method, args);
+                return null;
+            }
+        };
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // KEYBOARD SETUP
+        // ═══════════════════════════════════════════════════════════════════════════
+
         function openKeyboardSettings() {
-            alert('Go to:\nSettings → System → Languages & input → On-screen keyboard → Manage keyboards → Enable "KeyBord"');
+            if (Native.available) {
+                Native.call('openKeyboardSettings');
+            } else {
+                showToast('Go to: Settings → System → Languages & input → On-screen keyboard');
+            }
         }
 
         function showKeyboardPicker() {
-            alert('Tap the text input below, then look for a keyboard icon in your navigation bar to switch keyboards.');
+            if (Native.available) {
+                Native.call('showKeyboardPicker');
+            } else {
+                showToast('Tap a text field, then use keyboard icon to switch');
+            }
         }
 
-        function setAccentColor(color) {
-            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('selected'));
-            event.target.classList.add('selected');
+        // ═══════════════════════════════════════════════════════════════════════════
+        // FLOATING WINDOW
+        // ═══════════════════════════════════════════════════════════════════════════
 
-            // Save to preferences (would use Capacitor plugin in real app)
-            console.log('Accent color set to:', color);
-            alert('Accent color changed! (In full version, this would update keyboard instantly)');
+        function requestOverlayPermission() {
+            if (Native.available) {
+                Native.call('requestOverlayPermission');
+                showToast('Opening permission settings...');
+            } else {
+                showToast('Overlay permission needed for floating window');
+            }
         }
 
-        function toggleSetting(element, setting) {
+        function showFloatingWindow() {
+            if (Native.available) {
+                if (Native.call('canDrawOverlays')) {
+                    Native.call('showFloatingWindow');
+                    showToast('✨ Floating panel opened!');
+                } else {
+                    showToast('⚠️ Please grant overlay permission first');
+                    Native.call('requestOverlayPermission');
+                }
+            } else {
+                showToast('Floating window (native feature)');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // SETTINGS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function toggleSetting(element) {
             element.classList.toggle('active');
+            const setting = element.dataset.setting;
             const isActive = element.classList.contains('active');
-            console.log(setting + ':', isActive);
+
+            if (Native.available) {
+                Native.call('saveSettingBool', setting, isActive);
+                showToast((isActive ? '✓ ' : '✗ ') + capitalize(setting) + (isActive ? ' enabled' : ' disabled'));
+            } else {
+                localStorage.setItem(setting, isActive);
+                showToast(capitalize(setting) + ': ' + (isActive ? 'ON' : 'OFF'));
+            }
         }
+
+        function loadSettings() {
+            document.querySelectorAll('.toggle').forEach(toggle => {
+                const setting = toggle.dataset.setting;
+                let value = true; // default
+
+                if (Native.available) {
+                    value = Native.call('getSettingBool', setting, true);
+                } else {
+                    const stored = localStorage.getItem(setting);
+                    if (stored !== null) value = stored === 'true';
+                }
+
+                toggle.classList.toggle('active', value);
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // COLORS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        document.querySelectorAll('.color-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const isBg = this.dataset.setting === 'bg';
+                const settingName = isBg ? 'color_background' : 'color_accent';
+                const color = this.dataset.color;
+
+                // Update UI
+                this.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+                this.classList.add('selected');
+
+                // Save
+                if (Native.available) {
+                    Native.call('saveSetting', settingName, color);
+                    showToast('🎨 Color updated! Restart keyboard to apply.');
+                } else {
+                    localStorage.setItem(settingName, color);
+                    showToast('Color: ' + color);
+                }
+            });
+        });
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // STATUS CHECK
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function checkStatus() {
+            const enabledEl = document.getElementById('statusEnabled');
+            const activeEl = document.getElementById('statusActive');
+            const overlayEl = document.getElementById('statusOverlay');
+
+            if (Native.available) {
+                // Keyboard enabled?
+                const isEnabled = Native.call('isKeyboardEnabled');
+                enabledEl.textContent = isEnabled ? 'Enabled' : 'Disabled';
+                enabledEl.className = 'value ' + (isEnabled ? 'success' : 'error');
+
+                // Keyboard active?
+                const isActive = Native.call('isKeyboardActive');
+                activeEl.textContent = isActive ? 'Active' : 'Inactive';
+                activeEl.className = 'value ' + (isActive ? 'success' : 'warning');
+
+                // Overlay permission?
+                const canOverlay = Native.call('canDrawOverlays');
+                overlayEl.textContent = canOverlay ? 'Granted' : 'Denied';
+                overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
+            } else {
+                enabledEl.textContent = 'Browser';
+                enabledEl.className = 'value warning';
+                activeEl.textContent = 'Test Mode';
+                activeEl.className = 'value warning';
+                overlayEl.textContent = 'N/A';
+                overlayEl.className = 'value warning';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // UTILITIES
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 2500);
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1).replace(/_/g, ' ');
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+            checkStatus();
+
+            // Recheck on focus (when returning from settings)
+            window.addEventListener('focus', function() {
+                setTimeout(checkStatus, 500);
+            });
+        });
     </script>
 </body>
 
