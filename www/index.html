@@ -10,6 +10,7 @@
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
         }
         
         body {
@@ -19,7 +20,8 @@
             min-height: 100vh;
             padding: 16px;
             padding-top: max(16px, env(safe-area-inset-top));
-            padding-bottom: max(16px, env(safe-area-inset-bottom));
+            padding-bottom: max(100px, env(safe-area-inset-bottom));
+            user-select: none;
         }
         
         .header {
@@ -55,6 +57,12 @@
             border-radius: 12px;
             padding: 14px;
             text-align: center;
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        
+        .status-item:active {
+            transform: scale(0.97);
         }
         
         .status-item .icon {
@@ -73,15 +81,15 @@
             margin-top: 4px;
         }
         
-        .status-item .value.success {
+        .value.success {
             color: #10b981;
         }
         
-        .status-item .value.warning {
+        .value.warning {
             color: #f59e0b;
         }
         
-        .status-item .value.error {
+        .value.error {
             color: #ef4444;
         }
         
@@ -124,6 +132,10 @@
             opacity: 0.9;
         }
         
+        .btn:last-child {
+            margin-bottom: 0;
+        }
+        
         .btn-primary {
             background: linear-gradient(180deg, #3b82f6, #2563eb);
             color: #fff;
@@ -144,15 +156,55 @@
             color: #fff;
         }
         
-        .color-section {
+        .btn-danger {
+            background: linear-gradient(180deg, #ef4444, #dc2626);
+            color: #fff;
+        }
+        /* Theme Colors */
+        
+        .section-label {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 12px;
+            display: block;
+        }
+        
+        .theme-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
             margin-bottom: 16px;
         }
         
-        .color-section label {
-            display: block;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 10px;
+        .theme-card {
+            aspect-ratio: 1.3;
+            border-radius: 14px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+            position: relative;
+            overflow: hidden;
+            border: 3px solid transparent;
+        }
+        
+        .theme-card:active {
+            transform: scale(0.95);
+        }
+        
+        .theme-card.selected {
+            border-color: #fff;
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        }
+        
+        .theme-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            text-align: center;
+            background: rgba(0, 0, 0, 0.6);
         }
         
         .color-grid {
@@ -177,6 +229,7 @@
             border-color: #fff;
             transform: scale(1.1);
         }
+        /* Settings */
         
         .setting-row {
             display: flex;
@@ -188,13 +241,15 @@
         
         .setting-row:last-child {
             border-bottom: none;
+            padding-bottom: 0;
         }
         
-        .setting-row .label {
+        .setting-info .label {
             font-size: 15px;
+            font-weight: 500;
         }
         
-        .setting-row .sublabel {
+        .setting-info .sublabel {
             font-size: 12px;
             color: rgba(255, 255, 255, 0.4);
             margin-top: 2px;
@@ -208,6 +263,7 @@
             position: relative;
             cursor: pointer;
             transition: background 0.2s;
+            flex-shrink: 0;
         }
         
         .toggle.active {
@@ -223,13 +279,55 @@
             border-radius: 50%;
             top: 3px;
             left: 3px;
-            transition: left 0.2s;
+            transition: transform 0.2s;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
         }
         
         .toggle.active::after {
-            left: 25px;
+            transform: translateX(22px);
         }
+        /* Slider */
+        
+        .slider-container {
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .slider-label {
+            font-size: 15px;
+            font-weight: 500;
+        }
+        
+        .slider-value {
+            font-size: 14px;
+            color: #3b82f6;
+            font-weight: 600;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            background: #3b82f6;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+        /* Test Section */
         
         .test-section {
             background: rgba(0, 0, 0, 0.2);
@@ -264,6 +362,7 @@
             color: rgba(255, 255, 255, 0.3);
             font-size: 12px;
         }
+        /* Toast */
         
         .toast {
             position: fixed;
@@ -280,11 +379,18 @@
             z-index: 1000;
             max-width: 90%;
             text-align: center;
+            pointer-events: none;
         }
         
         .toast.show {
             transform: translateX(-50%) translateY(0);
             opacity: 1;
+        }
+        /* Loading state */
+        
+        .loading {
+            opacity: 0.5;
+            pointer-events: none;
         }
     </style>
 </head>
@@ -298,17 +404,17 @@
 
     <!-- Status Bar -->
     <div class="status-bar">
-        <div class="status-item">
+        <div class="status-item" onclick="openKeyboardSettings()">
             <div class="icon">⚙️</div>
             <div class="label">Keyboard</div>
             <div class="value" id="statusEnabled">Checking...</div>
         </div>
-        <div class="status-item">
+        <div class="status-item" onclick="showKeyboardPicker()">
             <div class="icon">✓</div>
             <div class="label">Status</div>
             <div class="value" id="statusActive">Checking...</div>
         </div>
-        <div class="status-item">
+        <div class="status-item" onclick="requestOverlayPermission()">
             <div class="icon">🔲</div>
             <div class="label">Overlay</div>
             <div class="value" id="statusOverlay">Checking...</div>
@@ -319,244 +425,147 @@
     <div class="card">
         <h2>🚀 Quick Setup</h2>
         <button class="btn btn-primary" onclick="openKeyboardSettings()">
-            ⚙️ Enable in Settings
+            ⚙️ Step 1: Enable KeyBord
         </button>
-        <button class="btn btn-secondary" onclick="showKeyboardPicker()">
-            🔄 Switch to KeyBord
-        </button>
-    </div>
-
-    <!-- Floating Window Card -->
-    <div class="card">
-        <h2>🪟 Floating Tools</h2>
-        <button class="btn btn-accent" onclick="showFloatingWindow()">
-            ✨ Open Floating Panel
-        </button>
-        <button class="btn btn-secondary" onclick="requestOverlayPermission()">
-            🔓 Grant Overlay Permission
+        <button class="btn btn-success" onclick="showKeyboardPicker()">
+            ✓ Step 2: Switch to KeyBord
         </button>
     </div>
 
     <!-- Theme Card -->
     <div class="card">
         <h2>🎨 Theme</h2>
-        <div class="color-section">
-            <label>Accent Color</label>
-            <div class="color-grid">
-                <div class="color-btn selected" style="background:#3b82f6" data-color="#3b82f6"></div>
-                <div class="color-btn" style="background:#8b5cf6" data-color="#8b5cf6"></div>
-                <div class="color-btn" style="background:#ec4899" data-color="#ec4899"></div>
-                <div class="color-btn" style="background:#10b981" data-color="#10b981"></div>
-                <div class="color-btn" style="background:#f59e0b" data-color="#f59e0b"></div>
-                <div class="color-btn" style="background:#ef4444" data-color="#ef4444"></div>
+        <span class="section-label">Select Theme</span>
+        <div class="theme-grid" id="themeGrid">
+            <div class="theme-card selected" data-theme="dark" style="background: linear-gradient(135deg, #1a1a2e, #3d3d5c);" onclick="selectTheme('dark')">
+                <span class="theme-label">Dark</span>
+            </div>
+            <div class="theme-card" data-theme="light" style="background: linear-gradient(135deg, #f0f0f5, #ffffff);" onclick="selectTheme('light')">
+                <span class="theme-label" style="color:#333">Light</span>
+            </div>
+            <div class="theme-card" data-theme="blue" style="background: linear-gradient(135deg, #0f172a, #1e3a5f);" onclick="selectTheme('blue')">
+                <span class="theme-label">Ocean</span>
+            </div>
+            <div class="theme-card" data-theme="green" style="background: linear-gradient(135deg, #0f1f0f, #1a3d1a);" onclick="selectTheme('green')">
+                <span class="theme-label">Forest</span>
+            </div>
+            <div class="theme-card" data-theme="purple" style="background: linear-gradient(135deg, #1a0a2e, #3d2d5c);" onclick="selectTheme('purple')">
+                <span class="theme-label">Purple</span>
+            </div>
+            <div class="theme-card" data-theme="red" style="background: linear-gradient(135deg, #1f0f0f, #3d1a1a);" onclick="selectTheme('red')">
+                <span class="theme-label">Cherry</span>
             </div>
         </div>
-        <div class="color-section">
-            <label>Background</label>
-            <div class="color-grid">
-                <div class="color-btn selected" style="background:#1a1a2e" data-color="#1a1a2e" data-setting="bg"></div>
-                <div class="color-btn" style="background:#0f172a" data-color="#0f172a" data-setting="bg"></div>
-                <div class="color-btn" style="background:#18181b" data-color="#18181b" data-setting="bg"></div>
-                <div class="color-btn" style="background:#1e1b4b" data-color="#1e1b4b" data-setting="bg"></div>
-                <div class="color-btn" style="background:#14532d" data-color="#14532d" data-setting="bg"></div>
-                <div class="color-btn" style="background:#450a0a" data-color="#450a0a" data-setting="bg"></div>
-            </div>
+
+        <span class="section-label">Accent Color</span>
+        <div class="color-grid" id="accentGrid">
+            <div class="color-btn selected" style="background:#3b82f6" data-color="#3b82f6" onclick="selectAccentColor(this)"></div>
+            <div class="color-btn" style="background:#8b5cf6" data-color="#8b5cf6" onclick="selectAccentColor(this)"></div>
+            <div class="color-btn" style="background:#ec4899" data-color="#ec4899" onclick="selectAccentColor(this)"></div>
+            <div class="color-btn" style="background:#10b981" data-color="#10b981" onclick="selectAccentColor(this)"></div>
+            <div class="color-btn" style="background:#f59e0b" data-color="#f59e0b" onclick="selectAccentColor(this)"></div>
+            <div class="color-btn" style="background:#ef4444" data-color="#ef4444" onclick="selectAccentColor(this)"></div>
         </div>
     </div>
 
     <!-- Settings Card -->
     <div class="card">
         <h2>⚙️ Preferences</h2>
+
         <div class="setting-row">
-            <div>
+            <div class="setting-info">
                 <div class="label">Vibration</div>
                 <div class="sublabel">Haptic feedback on key press</div>
             </div>
-            <div class="toggle active" data-setting="vibration" onclick="toggleSetting(this)"></div>
+            <div class="toggle active" id="toggle_vibration" onclick="toggleSetting('vibration')"></div>
         </div>
+
+        <div class="slider-container" id="vibrationSlider">
+            <div class="slider-header">
+                <span class="slider-label">Vibration Strength</span>
+                <span class="slider-value" id="vibrationValue">5ms</span>
+            </div>
+            <input type="range" class="slider" min="1" max="30" value="5" oninput="updateVibrationStrength(this.value)">
+        </div>
+
         <div class="setting-row">
-            <div>
+            <div class="setting-info">
                 <div class="label">Key Sound</div>
                 <div class="sublabel">Play sound on key press</div>
             </div>
-            <div class="toggle" data-setting="sound" onclick="toggleSetting(this)"></div>
+            <div class="toggle" id="toggle_sound" onclick="toggleSetting('sound')"></div>
         </div>
+
         <div class="setting-row">
-            <div>
-                <div class="label">Emoji Bar</div>
-                <div class="sublabel">Show quick emoji row</div>
+            <div class="setting-info">
+                <div class="label">Quick Emoji Row</div>
+                <div class="sublabel">Show emoji row above keyboard</div>
             </div>
-            <div class="toggle active" data-setting="emoji_bar" onclick="toggleSetting(this)"></div>
+            <div class="toggle" id="toggle_emoji_row" onclick="toggleSetting('emoji_row')"></div>
         </div>
-        <div class="setting-row">
-            <div>
-                <div class="label">Toolbar</div>
-                <div class="sublabel">Show top toolbar</div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <span class="slider-label">Keyboard Height</span>
+                <span class="slider-value" id="heightValue">320dp</span>
             </div>
-            <div class="toggle active" data-setting="toolbar" onclick="toggleSetting(this)"></div>
+            <input type="range" class="slider" id="heightSlider" min="260" max="400" value="320" oninput="updateKeyboardHeight(this.value)">
         </div>
+
+        <div class="slider-container" style="border-bottom:none;">
+            <div class="slider-header">
+                <span class="slider-label">Key Roundness</span>
+                <span class="slider-value" id="radiusValue">10dp</span>
+            </div>
+            <input type="range" class="slider" id="radiusSlider" min="0" max="20" value="10" oninput="updateKeyRadius(this.value)">
+        </div>
+    </div>
+
+    <!-- Tools Card -->
+    <div class="card">
+        <h2>🛠️ Tools</h2>
+        <button class="btn btn-accent" onclick="showFloatingWindow()">
+            ✨ Open Settings Popup
+        </button>
+        <button class="btn btn-secondary" onclick="requestOverlayPermission()">
+            🔓 Grant Overlay Permission
+        </button>
+        <button class="btn btn-danger" onclick="resetAllSettings()">
+            🔄 Reset All Settings
+        </button>
     </div>
 
     <!-- Test Card -->
     <div class="card">
         <h2>🧪 Test Keyboard</h2>
         <div class="test-section">
-            <label style="font-size:13px;color:rgba(255,255,255,0.6);">Tap below to test your keyboard:</label>
+            <label class="section-label">Tap below to test your keyboard:</label>
             <input type="text" class="test-input" placeholder="Type something here...">
+            <input type="text" class="test-input" placeholder="Try another field..." style="margin-top:8px;">
         </div>
     </div>
 
     <div class="footer">
-        KeyBord v1.0.0<br> Made with ❤️
+        KeyBord v1.0.0<br> Made with ❤️<br>
+        <span id="bridgeStatus" style="font-size:10px; color:rgba(255,255,255,0.2);">...</span>
     </div>
 
     <div class="toast" id="toast"></div>
 
     <script>
-        // Save keyboard layout
-        function saveKeyboardLayout(layout) {
-            // layout = [["q","w","e",...], ["a","s","d",...], ...]
-            var json = JSON.stringify(layout);
-            NativeSettings.saveSetting('keyboard_layout', json);
+        // ═══════════════════════════════════════════════════════════════════════════
+        // NATIVE BRIDGE CHECK
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        let isNativeAvailable = false;
+
+        function checkBridge() {
+            isNativeAvailable = typeof NativeSettings !== 'undefined';
+            document.getElementById('bridgeStatus').textContent =
+                isNativeAvailable ? 'Native Bridge: Connected ✓' : 'Native Bridge: Not Available (Browser Mode)';
+            console.log('Native Bridge Available:', isNativeAvailable);
+            return isNativeAvailable;
         }
-
-        // Save theme
-        function saveTheme(theme) {
-            // theme = { background: "#1a1a2e", accent: "#3b82f6", ... }
-            NativeSettings.saveSetting('color_background', theme.background);
-            NativeSettings.saveSetting('color_accent', theme.accent);
-            NativeSettings.saveSetting('color_keys', theme.keys);
-        }
-
-        // Save quick emojis
-        function saveQuickEmojis(emojis) {
-            // emojis = ["😀", "😂", "❤️", ...]
-            var json = JSON.stringify(emojis);
-            NativeSettings.saveSetting('quick_emojis', json);
-        }
-
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // NATIVE BRIDGE WRAPPER
-        // ═══════════════════════════════════════════════════════════════════════════
-
-        const Native = {
-            available: typeof NativeSettings !== 'undefined',
-
-            call: function(method) {
-                if (this.available && NativeSettings[method]) {
-                    return NativeSettings[method](...args);
-                }
-                console.log('Native call:', method, args);
-                return null;
-            }
-        };
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // KEYBOARD SETUP
-        // ═══════════════════════════════════════════════════════════════════════════
-
-        function openKeyboardSettings() {
-            if (Native.available) {
-                Native.call('openKeyboardSettings');
-            } else {
-                showToast('Go to: Settings → System → Languages & input → On-screen keyboard');
-            }
-        }
-
-        function showKeyboardPicker() {
-            if (Native.available) {
-                Native.call('showKeyboardPicker');
-            } else {
-                showToast('Tap a text field, then use keyboard icon to switch');
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // FLOATING WINDOW
-        // ═══════════════════════════════════════════════════════════════════════════
-
-        function requestOverlayPermission() {
-            if (Native.available) {
-                Native.call('requestOverlayPermission');
-                showToast('Opening permission settings...');
-            } else {
-                showToast('Overlay permission needed for floating window');
-            }
-        }
-
-        function showFloatingWindow() {
-            if (Native.available) {
-                if (Native.call('canDrawOverlays')) {
-                    Native.call('showFloatingWindow');
-                    showToast('✨ Floating panel opened!');
-                } else {
-                    showToast('⚠️ Please grant overlay permission first');
-                    Native.call('requestOverlayPermission');
-                }
-            } else {
-                showToast('Floating window (native feature)');
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // SETTINGS
-        // ═══════════════════════════════════════════════════════════════════════════
-
-        function toggleSetting(element) {
-            element.classList.toggle('active');
-            const setting = element.dataset.setting;
-            const isActive = element.classList.contains('active');
-
-            if (Native.available) {
-                Native.call('saveSettingBool', setting, isActive);
-                showToast((isActive ? '✓ ' : '✗ ') + capitalize(setting) + (isActive ? ' enabled' : ' disabled'));
-            } else {
-                localStorage.setItem(setting, isActive);
-                showToast(capitalize(setting) + ': ' + (isActive ? 'ON' : 'OFF'));
-            }
-        }
-
-        function loadSettings() {
-            document.querySelectorAll('.toggle').forEach(toggle => {
-                const setting = toggle.dataset.setting;
-                let value = true; // default
-
-                if (Native.available) {
-                    value = Native.call('getSettingBool', setting, true);
-                } else {
-                    const stored = localStorage.getItem(setting);
-                    if (stored !== null) value = stored === 'true';
-                }
-
-                toggle.classList.toggle('active', value);
-            });
-        }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // COLORS
-        // ═══════════════════════════════════════════════════════════════════════════
-
-        document.querySelectorAll('.color-btn').forEach(btn => {
-            btn.addEventListener('click', function() {
-                const isBg = this.dataset.setting === 'bg';
-                const settingName = isBg ? 'color_background' : 'color_accent';
-                const color = this.dataset.color;
-
-                // Update UI
-                this.parentElement.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
-                this.classList.add('selected');
-
-                // Save
-                if (Native.available) {
-                    Native.call('saveSetting', settingName, color);
-                    showToast('🎨 Color updated! Restart keyboard to apply.');
-                } else {
-                    localStorage.setItem(settingName, color);
-                    showToast('Color: ' + color);
-                }
-            });
-        });
 
         // ═══════════════════════════════════════════════════════════════════════════
         // STATUS CHECK
@@ -567,28 +576,301 @@
             const activeEl = document.getElementById('statusActive');
             const overlayEl = document.getElementById('statusOverlay');
 
-            if (Native.available) {
-                // Keyboard enabled?
-                const isEnabled = Native.call('isKeyboardEnabled');
-                enabledEl.textContent = isEnabled ? 'Enabled' : 'Disabled';
-                enabledEl.className = 'value ' + (isEnabled ? 'success' : 'error');
+            if (isNativeAvailable) {
+                try {
+                    // Keyboard enabled?
+                    const isEnabled = NativeSettings.isKeyboardEnabled();
+                    enabledEl.textContent = isEnabled ? 'Enabled ✓' : 'Disabled';
+                    enabledEl.className = 'value ' + (isEnabled ? 'success' : 'error');
 
-                // Keyboard active?
-                const isActive = Native.call('isKeyboardActive');
-                activeEl.textContent = isActive ? 'Active' : 'Inactive';
-                activeEl.className = 'value ' + (isActive ? 'success' : 'warning');
+                    // Keyboard active?
+                    const isActive = NativeSettings.isKeyboardActive();
+                    activeEl.textContent = isActive ? 'Active ✓' : 'Not Active';
+                    activeEl.className = 'value ' + (isActive ? 'success' : 'warning');
 
-                // Overlay permission?
-                const canOverlay = Native.call('canDrawOverlays');
-                overlayEl.textContent = canOverlay ? 'Granted' : 'Denied';
-                overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
+                    // Overlay permission?
+                    const canOverlay = NativeSettings.canDrawOverlays();
+                    overlayEl.textContent = canOverlay ? 'Granted ✓' : 'Denied';
+                    overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
+                } catch (e) {
+                    console.error('Status check error:', e);
+                    enabledEl.textContent = 'Error';
+                    enabledEl.className = 'value error';
+                }
             } else {
-                enabledEl.textContent = 'Browser';
+                enabledEl.textContent = 'Browser Mode';
                 enabledEl.className = 'value warning';
                 activeEl.textContent = 'Test Mode';
                 activeEl.className = 'value warning';
                 overlayEl.textContent = 'N/A';
                 overlayEl.className = 'value warning';
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // KEYBOARD SETUP
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function openKeyboardSettings() {
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.openKeyboardSettings();
+                    showToast('📱 Opening keyboard settings...');
+                } catch (e) {
+                    console.error('Error:', e);
+                    showToast('❌ Could not open settings');
+                }
+            } else {
+                showToast('📱 Go to: Settings → System → Keyboard → Manage keyboards');
+            }
+        }
+
+        function showKeyboardPicker() {
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.showKeyboardPicker();
+                    showToast('⌨️ Select KeyBord from the list');
+                } catch (e) {
+                    console.error('Error:', e);
+                    showToast('❌ Could not show picker');
+                }
+            } else {
+                showToast('⌨️ Tap a text field, then use keyboard icon to switch');
+            }
+        }
+
+        function requestOverlayPermission() {
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.requestOverlayPermission();
+                    showToast('🔓 Opening permission settings...');
+                } catch (e) {
+                    console.error('Error:', e);
+                    showToast('❌ Could not open permission settings');
+                }
+            } else {
+                showToast('🔓 Overlay permission (Android only)');
+            }
+        }
+
+        function showFloatingWindow() {
+            if (isNativeAvailable) {
+                try {
+                    if (NativeSettings.canDrawOverlays()) {
+                        NativeSettings.showFloatingWindow();
+                        showToast('✨ Opening settings popup...');
+                    } else {
+                        showToast('⚠️ Please grant overlay permission first');
+                        NativeSettings.requestOverlayPermission();
+                    }
+                } catch (e) {
+                    console.error('Error:', e);
+                    showToast('❌ Could not open popup');
+                }
+            } else {
+                showToast('✨ Settings popup (Android only)');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // THEME SELECTION
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function selectTheme(themeName) {
+            // Update UI
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.remove('selected');
+                if (card.dataset.theme === themeName) {
+                    card.classList.add('selected');
+                }
+            });
+
+            // Save to native
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.applyTheme(themeName);
+                    showToast('🎨 Theme: ' + capitalize(themeName) + ' applied!');
+                } catch (e) {
+                    console.error('Error:', e);
+                    showToast('❌ Could not apply theme');
+                }
+            } else {
+                localStorage.setItem('theme', themeName);
+                showToast('🎨 Theme: ' + capitalize(themeName));
+            }
+        }
+
+        function selectAccentColor(element) {
+            const color = element.dataset.color;
+
+            // Update UI
+            document.querySelectorAll('#accentGrid .color-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            element.classList.add('selected');
+
+            // Save to native
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.setColorAccent(color);
+                    showToast('🎨 Accent color updated!');
+                } catch (e) {
+                    console.error('Error:', e);
+                }
+            } else {
+                localStorage.setItem('accent_color', color);
+                showToast('🎨 Color: ' + color);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // TOGGLE SETTINGS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function toggleSetting(settingName) {
+            const toggle = document.getElementById('toggle_' + settingName);
+            toggle.classList.toggle('active');
+            const isActive = toggle.classList.contains('active');
+
+            // Show/hide vibration slider
+            if (settingName === 'vibration') {
+                document.getElementById('vibrationSlider').style.display = isActive ? 'block' : 'none';
+            }
+
+            // Save to native
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.saveSettingBool(settingName, isActive);
+                    showToast((isActive ? '✓ ' : '✗ ') + capitalize(settingName) + (isActive ? ' enabled' : ' disabled'));
+                } catch (e) {
+                    console.error('Error:', e);
+                }
+            } else {
+                localStorage.setItem(settingName, isActive);
+                showToast(capitalize(settingName) + ': ' + (isActive ? 'ON' : 'OFF'));
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // SLIDER SETTINGS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function updateVibrationStrength(value) {
+            document.getElementById('vibrationValue').textContent = value + 'ms';
+
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.saveSettingInt('vibration_strength', parseInt(value));
+                } catch (e) {
+                    console.error('Error:', e);
+                }
+            } else {
+                localStorage.setItem('vibration_strength', value);
+            }
+        }
+
+        function updateKeyboardHeight(value) {
+            document.getElementById('heightValue').textContent = value + 'dp';
+
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.saveSettingInt('keyboard_height', parseInt(value));
+                } catch (e) {
+                    console.error('Error:', e);
+                }
+            } else {
+                localStorage.setItem('keyboard_height', value);
+            }
+        }
+
+        function updateKeyRadius(value) {
+            document.getElementById('radiusValue').textContent = value + 'dp';
+
+            if (isNativeAvailable) {
+                try {
+                    NativeSettings.saveSettingInt('key_radius', parseInt(value));
+                } catch (e) {
+                    console.error('Error:', e);
+                }
+            } else {
+                localStorage.setItem('key_radius', value);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // RESET SETTINGS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function resetAllSettings() {
+            if (confirm('Reset all keyboard settings to defaults?')) {
+                if (isNativeAvailable) {
+                    try {
+                        NativeSettings.resetAllSettings();
+                        showToast('🔄 All settings reset to defaults!');
+                        setTimeout(() => location.reload(), 500);
+                    } catch (e) {
+                        console.error('Error:', e);
+                        showToast('❌ Could not reset settings');
+                    }
+                } else {
+                    localStorage.clear();
+                    showToast('🔄 Settings cleared!');
+                    setTimeout(() => location.reload(), 500);
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // LOAD SAVED SETTINGS
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function loadSettings() {
+            if (isNativeAvailable) {
+                try {
+                    // Theme
+                    const currentTheme = NativeSettings.getCurrentTheme();
+                    document.querySelectorAll('.theme-card').forEach(card => {
+                        card.classList.toggle('selected', card.dataset.theme === currentTheme);
+                    });
+
+                    // Toggles
+                    document.getElementById('toggle_vibration').classList.toggle('active',
+                        NativeSettings.getSettingBool('vibration', true));
+                    document.getElementById('toggle_sound').classList.toggle('active',
+                        NativeSettings.getSettingBool('sound', false));
+                    document.getElementById('toggle_emoji_row').classList.toggle('active',
+                        NativeSettings.getSettingBool('emoji_row', false));
+
+                    // Sliders
+                    const vibStrength = NativeSettings.getSettingInt('vibration_strength', 5);
+                    document.querySelector('#vibrationSlider input').value = vibStrength;
+                    document.getElementById('vibrationValue').textContent = vibStrength + 'ms';
+
+                    const kbHeight = NativeSettings.getSettingInt('keyboard_height', 320);
+                    document.getElementById('heightSlider').value = kbHeight;
+                    document.getElementById('heightValue').textContent = kbHeight + 'dp';
+
+                    const keyRadius = NativeSettings.getSettingInt('key_radius', 10);
+                    document.getElementById('radiusSlider').value = keyRadius;
+                    document.getElementById('radiusValue').textContent = keyRadius + 'dp';
+
+                    // Show/hide vibration slider based on toggle
+                    const vibEnabled = NativeSettings.getSettingBool('vibration', true);
+                    document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
+
+                } catch (e) {
+                    console.error('Error loading settings:', e);
+                }
+            } else {
+                // Load from localStorage for browser testing
+                const vibEnabled = localStorage.getItem('vibration') !== 'false';
+                document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
+                document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
+
+                document.getElementById('toggle_sound').classList.toggle('active',
+                    localStorage.getItem('sound') === 'true');
+                document.getElementById('toggle_emoji_row').classList.toggle('active',
+                    localStorage.getItem('emoji_row') === 'true');
             }
         }
 
@@ -611,18 +893,38 @@
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
-        // INIT
+        // INITIALIZATION
         // ═══════════════════════════════════════════════════════════════════════════
 
-        document.addEventListener('DOMContentLoaded', function() {
-            loadSettings();
-            checkStatus();
+        function init() {
+            console.log('KeyBord App Initializing...');
 
-            // Recheck on focus (when returning from settings)
-            window.addEventListener('focus', function() {
-                setTimeout(checkStatus, 500);
-            });
+            // Wait a bit for native bridge to be ready
+            setTimeout(() => {
+                checkBridge();
+                loadSettings();
+                checkStatus();
+                console.log('KeyBord App Ready!');
+            }, 300);
+        }
+
+        // Run on load
+        document.addEventListener('DOMContentLoaded', init);
+
+        // Also check when window gets focus (returning from settings)
+        window.addEventListener('focus', () => {
+            setTimeout(() => {
+                checkBridge();
+                checkStatus();
+            }, 500);
         });
+
+        // Recheck periodically (every 3 seconds)
+        setInterval(() => {
+            if (isNativeAvailable) {
+                checkStatus();
+            }
+        }, 3000);
     </script>
 </body>
 
