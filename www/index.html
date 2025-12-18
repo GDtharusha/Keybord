@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KeyBord</title>
+    <title>KeyBord Settings</title>
     <style>
         * {
             margin: 0;
@@ -17,40 +17,47 @@
             background: linear-gradient(180deg, #0f0f1a, #1a1a2e);
             color: #fff;
             min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 40px 20px;
+            padding: 20px;
         }
         
-        .logo {
-            font-size: 80px;
-            margin-bottom: 20px;
+        .header {
+            text-align: center;
+            padding: 30px 0;
         }
         
-        h1 {
-            font-size: 32px;
-            margin-bottom: 10px;
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 8px;
         }
         
-        p {
+        .header p {
             color: rgba(255, 255, 255, 0.6);
-            margin-bottom: 40px;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        
+        .card h2 {
+            font-size: 16px;
+            margin-bottom: 16px;
+            color: #3b82f6;
         }
         
         .btn {
             display: block;
             width: 100%;
-            max-width: 300px;
-            padding: 16px 24px;
-            margin: 10px 0;
+            padding: 16px;
             border: none;
             border-radius: 12px;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
+            margin-bottom: 12px;
             text-align: center;
-            text-decoration: none;
         }
         
         .btn-primary {
@@ -63,28 +70,73 @@
             color: #fff;
         }
         
-        .test-box {
-            width: 100%;
-            max-width: 300px;
-            margin-top: 40px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 10px;
         }
         
-        .test-box h3 {
-            margin-bottom: 15px;
-            font-size: 16px;
+        .color-btn {
+            aspect-ratio: 1;
+            border-radius: 12px;
+            border: 3px solid transparent;
+            cursor: pointer;
+        }
+        
+        .color-btn.selected {
+            border-color: #fff;
+        }
+        
+        .setting-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .setting-row:last-child {
+            border-bottom: none;
+        }
+        
+        .toggle {
+            width: 50px;
+            height: 28px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 14px;
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .toggle.active {
+            background: #3b82f6;
+        }
+        
+        .toggle::after {
+            content: '';
+            position: absolute;
+            width: 22px;
+            height: 22px;
+            background: #fff;
+            border-radius: 50%;
+            top: 3px;
+            left: 3px;
+            transition: 0.2s;
+        }
+        
+        .toggle.active::after {
+            left: 25px;
         }
         
         .test-input {
             width: 100%;
-            padding: 15px;
+            padding: 16px;
             background: rgba(0, 0, 0, 0.3);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 8px;
+            border-radius: 12px;
             color: #fff;
             font-size: 16px;
+            margin-top: 12px;
         }
         
         .test-input:focus {
@@ -95,35 +147,89 @@
 </head>
 
 <body>
-    <div class="logo">⌨️</div>
-    <h1>KeyBord</h1>
-    <p>High-Performance Keyboard</p>
+    <div class="header">
+        <h1>⌨️ KeyBord</h1>
+        <p>Settings & Customization</p>
+    </div>
 
-    <button class="btn btn-primary" onclick="openSettings()">
-        ⚙️ Open Keyboard Settings
-    </button>
+    <div class="card">
+        <h2>🚀 Quick Setup</h2>
+        <button class="btn btn-primary" onclick="openKeyboardSettings()">
+            Enable KeyBord in Settings
+        </button>
+        <button class="btn btn-secondary" onclick="showKeyboardPicker()">
+            Switch to KeyBord
+        </button>
+    </div>
 
-    <button class="btn btn-secondary" onclick="switchKeyboard()">
-        🔄 Switch to KeyBord
-    </button>
+    <div class="card">
+        <h2>🎨 Theme Colors</h2>
+        <p style="margin-bottom: 12px; color: rgba(255,255,255,0.6);">Accent Color:</p>
+        <div class="color-grid">
+            <div class="color-btn selected" style="background: #3b82f6;" onclick="setAccentColor('#3b82f6')"></div>
+            <div class="color-btn" style="background: #8b5cf6;" onclick="setAccentColor('#8b5cf6')"></div>
+            <div class="color-btn" style="background: #ec4899;" onclick="setAccentColor('#ec4899')"></div>
+            <div class="color-btn" style="background: #10b981;" onclick="setAccentColor('#10b981')"></div>
+            <div class="color-btn" style="background: #f59e0b;" onclick="setAccentColor('#f59e0b')"></div>
+        </div>
+    </div>
 
-    <div class="test-box">
-        <h3>🧪 Test Keyboard</h3>
-        <input type="text" class="test-input" placeholder="Tap here to test...">
+    <div class="card">
+        <h2>⚙️ Preferences</h2>
+        <div class="setting-row">
+            <span>Vibration</span>
+            <div class="toggle active" onclick="toggleSetting(this, 'vibration')"></div>
+        </div>
+        <div class="setting-row">
+            <span>Key Sound</span>
+            <div class="toggle" onclick="toggleSetting(this, 'sound')"></div>
+        </div>
+        <div class="setting-row">
+            <span>Show Emoji Bar</span>
+            <div class="toggle active" onclick="toggleSetting(this, 'emoji_bar')"></div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>🧪 Test Keyboard</h2>
+        <p style="color: rgba(255,255,255,0.6);">Tap below to test your keyboard:</p>
+        <input type="text" class="test-input" placeholder="Type something...">
+    </div>
+
+    <div class="card">
+        <h2>📊 Stats</h2>
+        <div class="setting-row">
+            <span>Keys Typed Today</span>
+            <span style="color: #3b82f6;">1,234</span>
+        </div>
+        <div class="setting-row">
+            <span>Words Typed</span>
+            <span style="color: #3b82f6;">256</span>
+        </div>
     </div>
 
     <script>
-        function openSettings() {
-            if (window.Capacitor && Capacitor.Plugins.App) {
-                // Try to open settings via Capacitor
-                alert('Go to: Settings → System → Languages & input → On-screen keyboard → Manage keyboards → Enable "KeyBord"');
-            } else {
-                alert('Go to: Settings → System → Languages & input → On-screen keyboard → Manage keyboards → Enable "KeyBord"');
-            }
+        function openKeyboardSettings() {
+            alert('Go to:\nSettings → System → Languages & input → On-screen keyboard → Manage keyboards → Enable "KeyBord"');
         }
 
-        function switchKeyboard() {
-            alert('Tap on the text input below, then look for a keyboard icon in your navigation bar to switch keyboards.');
+        function showKeyboardPicker() {
+            alert('Tap the text input below, then look for a keyboard icon in your navigation bar to switch keyboards.');
+        }
+
+        function setAccentColor(color) {
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+
+            // Save to preferences (would use Capacitor plugin in real app)
+            console.log('Accent color set to:', color);
+            alert('Accent color changed! (In full version, this would update keyboard instantly)');
+        }
+
+        function toggleSetting(element, setting) {
+            element.classList.toggle('active');
+            const isActive = element.classList.contains('active');
+            console.log(setting + ':', isActive);
         }
     </script>
 </body>
