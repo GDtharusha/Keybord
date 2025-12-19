@@ -23,6 +23,54 @@
             padding-bottom: max(100px, env(safe-area-inset-bottom));
             user-select: none;
         }
+        /* Loading Overlay */
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(180deg, #0f0f1a, #1a1a2e);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+        
+        .loading-overlay.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+        
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+        
+        .loading-text {
+            margin-top: 20px;
+            font-size: 16px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .loading-subtext {
+            margin-top: 8px;
+            font-size: 12px;
+            color: rgba(255, 255, 255, 0.4);
+        }
         
         .header {
             text-align: center;
@@ -159,6 +207,51 @@
         .btn-danger {
             background: linear-gradient(180deg, #ef4444, #dc2626);
             color: #fff;
+        }
+        
+        .btn-warning {
+            background: linear-gradient(180deg, #f59e0b, #d97706);
+            color: #fff;
+        }
+        /* Connection Status Banner */
+        
+        .connection-banner {
+            background: rgba(239, 68, 68, 0.2);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 12px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
+            display: none;
+        }
+        
+        .connection-banner.show {
+            display: block;
+        }
+        
+        .connection-banner.connected {
+            background: rgba(16, 185, 129, 0.2);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        
+        .connection-banner .banner-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .connection-banner .banner-text {
+            font-size: 13px;
+        }
+        
+        .connection-banner .banner-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: #fff;
+            cursor: pointer;
         }
         /* Theme Colors */
         
@@ -396,10 +489,25 @@
 </head>
 
 <body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Connecting to KeyBord...</div>
+        <div class="loading-subtext" id="loadingSubtext">Please wait...</div>
+    </div>
+
     <div class="header">
         <div class="logo">⌨️</div>
         <h1>KeyBord</h1>
         <p>High-Performance Custom Keyboard</p>
+    </div>
+
+    <!-- Connection Banner -->
+    <div class="connection-banner" id="connectionBanner">
+        <div class="banner-content">
+            <span class="banner-text" id="bannerText">⚠️ Not connected to native bridge</span>
+            <button class="banner-btn" id="bannerBtn" onclick="manualActivate()">Activate</button>
+        </div>
     </div>
 
     <!-- Status Bar -->
@@ -507,17 +615,17 @@
         <div class="slider-container">
             <div class="slider-header">
                 <span class="slider-label">Keyboard Height</span>
-                <span class="slider-value" id="heightValue">320dp</span>
+                <span class="slider-value" id="heightValue">280dp</span>
             </div>
-            <input type="range" class="slider" id="heightSlider" min="260" max="400" value="320" oninput="updateKeyboardHeight(this.value)">
+            <input type="range" class="slider" id="heightSlider" min="240" max="360" value="280" oninput="updateKeyboardHeight(this.value)">
         </div>
 
         <div class="slider-container" style="border-bottom:none;">
             <div class="slider-header">
                 <span class="slider-label">Key Roundness</span>
-                <span class="slider-value" id="radiusValue">10dp</span>
+                <span class="slider-value" id="radiusValue">8dp</span>
             </div>
-            <input type="range" class="slider" id="radiusSlider" min="0" max="20" value="10" oninput="updateKeyRadius(this.value)">
+            <input type="range" class="slider" id="radiusSlider" min="0" max="20" value="8" oninput="updateKeyRadius(this.value)">
         </div>
     </div>
 
@@ -527,11 +635,14 @@
         <button class="btn btn-accent" onclick="showFloatingWindow()">
             ✨ Open Settings Popup
         </button>
+        <button class="btn btn-warning" onclick="manualActivate()">
+            🔄 Refresh Connection
+        </button>
         <button class="btn btn-secondary" onclick="requestOverlayPermission()">
             🔓 Grant Overlay Permission
         </button>
         <button class="btn btn-danger" onclick="resetAllSettings()">
-            🔄 Reset All Settings
+            ⚠️ Reset All Settings
         </button>
     </div>
 
@@ -554,17 +665,127 @@
 
     <script>
         // ═══════════════════════════════════════════════════════════════════════════
-        // NATIVE BRIDGE CHECK
+        // GLOBAL VARIABLES
         // ═══════════════════════════════════════════════════════════════════════════
 
         let isNativeAvailable = false;
+        let connectionAttempts = 0;
+        const MAX_ATTEMPTS = 10;
+        const ATTEMPT_INTERVAL = 800; // 800ms between attempts
+        const LOADING_TIMEOUT = 8000; // 8 seconds max loading time
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // LOADING & CONNECTION MANAGEMENT
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        function hideLoading() {
+            document.getElementById('loadingOverlay').classList.add('hidden');
+        }
+
+        function updateLoadingText(text) {
+            document.getElementById('loadingSubtext').textContent = text;
+        }
+
+        function showConnectionBanner(connected) {
+            const banner = document.getElementById('connectionBanner');
+            const text = document.getElementById('bannerText');
+            const btn = document.getElementById('bannerBtn');
+
+            if (connected) {
+                banner.classList.add('connected');
+                text.textContent = '✓ Connected to native bridge';
+                btn.textContent = 'Refresh';
+                // Hide after 3 seconds if connected
+                setTimeout(() => {
+                    banner.classList.remove('show');
+                }, 3000);
+            } else {
+                banner.classList.remove('connected');
+                text.textContent = '⚠️ Not connected - Settings may not save';
+                btn.textContent = 'Activate';
+            }
+            banner.classList.add('show');
+        }
+
+        // ═══════════════════════════════════════════════════════════════════════════
+        // NATIVE BRIDGE CHECK WITH RETRY
+        // ═══════════════════════════════════════════════════════════════════════════
 
         function checkBridge() {
-            isNativeAvailable = typeof NativeSettings !== 'undefined';
+            isNativeAvailable = typeof NativeSettings !== 'undefined' && NativeSettings !== null;
+
+            try {
+                // Try to actually call a method to verify it works
+                if (isNativeAvailable) {
+                    NativeSettings.log('Bridge check - connection test');
+                }
+            } catch (e) {
+                isNativeAvailable = false;
+            }
+
             document.getElementById('bridgeStatus').textContent =
-                isNativeAvailable ? 'Native Bridge: Connected ✓' : 'Native Bridge: Not Available (Browser Mode)';
+                isNativeAvailable ? 'Native Bridge: Connected ✓' : 'Native Bridge: Browser Mode';
+
             console.log('Native Bridge Available:', isNativeAvailable);
             return isNativeAvailable;
+        }
+
+        function attemptConnection() {
+            connectionAttempts++;
+            updateLoadingText('Attempt ' + connectionAttempts + '/' + MAX_ATTEMPTS + '...');
+
+            if (checkBridge()) {
+                // Connected successfully
+                console.log('Connected on attempt ' + connectionAttempts);
+                hideLoading();
+                showConnectionBanner(true);
+                loadSettings();
+                checkStatus();
+                return true;
+            }
+
+            if (connectionAttempts < MAX_ATTEMPTS) {
+                // Try again
+                setTimeout(attemptConnection, ATTEMPT_INTERVAL);
+                return false;
+            } else {
+                // Max attempts reached
+                console.log('Max attempts reached, continuing without native bridge');
+                hideLoading();
+                showConnectionBanner(false);
+                loadSettingsFromLocalStorage();
+                checkStatusBrowserMode();
+                return false;
+            }
+        }
+
+        function manualActivate() {
+            showToast('🔄 Reconnecting...');
+            connectionAttempts = 0;
+
+            if (checkBridge()) {
+                showConnectionBanner(true);
+                loadSettings();
+                checkStatus();
+                showToast('✓ Connected successfully!');
+            } else {
+                // Try a few more times
+                let retries = 0;
+                const retryInterval = setInterval(() => {
+                    retries++;
+                    if (checkBridge()) {
+                        clearInterval(retryInterval);
+                        showConnectionBanner(true);
+                        loadSettings();
+                        checkStatus();
+                        showToast('✓ Connected successfully!');
+                    } else if (retries >= 5) {
+                        clearInterval(retryInterval);
+                        showConnectionBanner(false);
+                        showToast('⚠️ Could not connect. Try restarting the app.');
+                    }
+                }, 500);
+            }
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -594,17 +815,24 @@
                     overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
                 } catch (e) {
                     console.error('Status check error:', e);
-                    enabledEl.textContent = 'Error';
-                    enabledEl.className = 'value error';
+                    checkStatusBrowserMode();
                 }
             } else {
-                enabledEl.textContent = 'Browser Mode';
-                enabledEl.className = 'value warning';
-                activeEl.textContent = 'Test Mode';
-                activeEl.className = 'value warning';
-                overlayEl.textContent = 'N/A';
-                overlayEl.className = 'value warning';
+                checkStatusBrowserMode();
             }
+        }
+
+        function checkStatusBrowserMode() {
+            const enabledEl = document.getElementById('statusEnabled');
+            const activeEl = document.getElementById('statusActive');
+            const overlayEl = document.getElementById('statusOverlay');
+
+            enabledEl.textContent = 'Browser Mode';
+            enabledEl.className = 'value warning';
+            activeEl.textContent = 'Test Mode';
+            activeEl.className = 'value warning';
+            overlayEl.textContent = 'N/A';
+            overlayEl.className = 'value warning';
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -692,7 +920,8 @@
                     showToast('🎨 Theme: ' + capitalize(themeName) + ' applied!');
                 } catch (e) {
                     console.error('Error:', e);
-                    showToast('❌ Could not apply theme');
+                    localStorage.setItem('theme', themeName);
+                    showToast('🎨 Theme saved locally');
                 }
             } else {
                 localStorage.setItem('theme', themeName);
@@ -716,6 +945,7 @@
                     showToast('🎨 Accent color updated!');
                 } catch (e) {
                     console.error('Error:', e);
+                    localStorage.setItem('accent_color', color);
                 }
             } else {
                 localStorage.setItem('accent_color', color);
@@ -744,6 +974,7 @@
                     showToast((isActive ? '✓ ' : '✗ ') + capitalize(settingName) + (isActive ? ' enabled' : ' disabled'));
                 } catch (e) {
                     console.error('Error:', e);
+                    localStorage.setItem(settingName, isActive);
                 }
             } else {
                 localStorage.setItem(settingName, isActive);
@@ -763,6 +994,7 @@
                     NativeSettings.saveSettingInt('vibration_strength', parseInt(value));
                 } catch (e) {
                     console.error('Error:', e);
+                    localStorage.setItem('vibration_strength', value);
                 }
             } else {
                 localStorage.setItem('vibration_strength', value);
@@ -777,6 +1009,7 @@
                     NativeSettings.saveSettingInt('keyboard_height', parseInt(value));
                 } catch (e) {
                     console.error('Error:', e);
+                    localStorage.setItem('keyboard_height', value);
                 }
             } else {
                 localStorage.setItem('keyboard_height', value);
@@ -791,6 +1024,7 @@
                     NativeSettings.saveSettingInt('key_radius', parseInt(value));
                 } catch (e) {
                     console.error('Error:', e);
+                    localStorage.setItem('key_radius', value);
                 }
             } else {
                 localStorage.setItem('key_radius', value);
@@ -810,7 +1044,9 @@
                         setTimeout(() => location.reload(), 500);
                     } catch (e) {
                         console.error('Error:', e);
-                        showToast('❌ Could not reset settings');
+                        localStorage.clear();
+                        showToast('🔄 Settings cleared locally');
+                        setTimeout(() => location.reload(), 500);
                     }
                 } else {
                     localStorage.clear();
@@ -834,8 +1070,10 @@
                     });
 
                     // Toggles
-                    document.getElementById('toggle_vibration').classList.toggle('active',
-                        NativeSettings.getSettingBool('vibration', true));
+                    const vibEnabled = NativeSettings.getSettingBool('vibration', true);
+                    document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
+                    document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
+
                     document.getElementById('toggle_sound').classList.toggle('active',
                         NativeSettings.getSettingBool('sound', false));
                     document.getElementById('toggle_emoji_row').classList.toggle('active',
@@ -846,32 +1084,42 @@
                     document.querySelector('#vibrationSlider input').value = vibStrength;
                     document.getElementById('vibrationValue').textContent = vibStrength + 'ms';
 
-                    const kbHeight = NativeSettings.getSettingInt('keyboard_height', 320);
+                    const kbHeight = NativeSettings.getSettingInt('keyboard_height', 280);
                     document.getElementById('heightSlider').value = kbHeight;
                     document.getElementById('heightValue').textContent = kbHeight + 'dp';
 
-                    const keyRadius = NativeSettings.getSettingInt('key_radius', 10);
+                    const keyRadius = NativeSettings.getSettingInt('key_radius', 8);
                     document.getElementById('radiusSlider').value = keyRadius;
                     document.getElementById('radiusValue').textContent = keyRadius + 'dp';
 
-                    // Show/hide vibration slider based on toggle
-                    const vibEnabled = NativeSettings.getSettingBool('vibration', true);
-                    document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
-
+                    console.log('Settings loaded from native');
                 } catch (e) {
                     console.error('Error loading settings:', e);
+                    loadSettingsFromLocalStorage();
                 }
             } else {
-                // Load from localStorage for browser testing
-                const vibEnabled = localStorage.getItem('vibration') !== 'false';
-                document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
-                document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
-
-                document.getElementById('toggle_sound').classList.toggle('active',
-                    localStorage.getItem('sound') === 'true');
-                document.getElementById('toggle_emoji_row').classList.toggle('active',
-                    localStorage.getItem('emoji_row') === 'true');
+                loadSettingsFromLocalStorage();
             }
+        }
+
+        function loadSettingsFromLocalStorage() {
+            // Load from localStorage for browser testing
+            const vibEnabled = localStorage.getItem('vibration') !== 'false';
+            document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
+            document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
+
+            document.getElementById('toggle_sound').classList.toggle('active',
+                localStorage.getItem('sound') === 'true');
+            document.getElementById('toggle_emoji_row').classList.toggle('active',
+                localStorage.getItem('emoji_row') === 'true');
+
+            // Load theme
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.querySelectorAll('.theme-card').forEach(card => {
+                card.classList.toggle('selected', card.dataset.theme === savedTheme);
+            });
+
+            console.log('Settings loaded from localStorage');
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -899,12 +1147,23 @@
         function init() {
             console.log('KeyBord App Initializing...');
 
-            // Wait a bit for native bridge to be ready
+            // Set loading timeout - force hide after 8 seconds
             setTimeout(() => {
-                checkBridge();
-                loadSettings();
-                checkStatus();
-                console.log('KeyBord App Ready!');
+                const overlay = document.getElementById('loadingOverlay');
+                if (!overlay.classList.contains('hidden')) {
+                    console.log('Loading timeout reached, forcing hide');
+                    hideLoading();
+                    if (!isNativeAvailable) {
+                        showConnectionBanner(false);
+                        loadSettingsFromLocalStorage();
+                        checkStatusBrowserMode();
+                    }
+                }
+            }, LOADING_TIMEOUT);
+
+            // Start connection attempts
+            setTimeout(() => {
+                attemptConnection();
             }, 300);
         }
 
@@ -914,17 +1173,18 @@
         // Also check when window gets focus (returning from settings)
         window.addEventListener('focus', () => {
             setTimeout(() => {
-                checkBridge();
-                checkStatus();
+                if (checkBridge()) {
+                    checkStatus();
+                }
             }, 500);
         });
 
-        // Recheck periodically (every 3 seconds)
+        // Recheck periodically (every 5 seconds)
         setInterval(() => {
             if (isNativeAvailable) {
                 checkStatus();
             }
-        }, 3000);
+        }, 5000);
     </script>
 </body>
 

@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -20,6 +21,8 @@ import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.FrameLayout;
@@ -32,7 +35,7 @@ public class FastKeyboardService extends InputMethodService {
     private static final String TAG = "FastKeyboardService";
     
     // ════════════════════════════════════════════════════════════════
-    // SETTINGS - මෙම values SharedPreferences වලින් load වෙනවා
+    // SETTINGS - SharedPreferences වලින් load වෙනවා
     // ════════════════════════════════════════════════════════════════
     
     // Colors (loaded from settings)
@@ -48,7 +51,7 @@ public class FastKeyboardService extends InputMethodService {
     // Sizes (loaded from settings)
     private int keyboardHeight;
     private int keyRadius;
-    private int keyMargin;
+    private int keyMargin = 2; // REDUCED from 3 to 2
     private int keyTextSize;
     private int keySpecialTextSize;
     
@@ -60,10 +63,10 @@ public class FastKeyboardService extends InputMethodService {
     // Features (loaded from settings)
     private boolean showEmojiRow;
     private int longPressDelay;
-    private int repeatInterval = 50;
+    private int repeatInterval = 35; // Faster repeat for better UX
     
     // ════════════════════════════════════════════════════════════════
-    // LAYOUTS
+    // LAYOUTS - COMPACT (reduced gaps built into layout)
     // ════════════════════════════════════════════════════════════════
     
     private static final String[][] LAYOUT_LETTERS = {
@@ -94,6 +97,7 @@ public class FastKeyboardService extends InputMethodService {
     // ════════════════════════════════════════════════════════════════
     
     private LinearLayout keyboard;
+    private FrameLayout rootContainer;
     private Handler handler;
     private Vibrator vibrator;
     private ToneGenerator toneGenerator;
@@ -106,8 +110,10 @@ public class FastKeyboardService extends InputMethodService {
     private boolean isRepeating = false;
     private Runnable repeatRunnable;
     
+    private int navigationBarHeight = 0;
+    
     // ════════════════════════════════════════════════════════════════
-    // BROADCAST RECEIVER - Settings changes සහ text type commands
+    // BROADCAST RECEIVER
     // ════════════════════════════════════════════════════════════════
     
     private BroadcastReceiver settingsReceiver = new BroadcastReceiver() {
@@ -117,7 +123,6 @@ public class FastKeyboardService extends InputMethodService {
             Log.d(TAG, "Received broadcast: " + action);
             
             if (KeyboardSettings.ACTION_SETTINGS_CHANGED.equals(action)) {
-                // Reload settings and refresh keyboard
                 loadSettings();
                 refreshKeyboard();
                 showToast("⚙️ Settings Updated!");
@@ -143,24 +148,21 @@ public class FastKeyboardService extends InputMethodService {
         handler = new Handler(Looper.getMainLooper());
         settings = new KeyboardSettings(this);
         
-        // Load initial settings
         loadSettings();
+        calculateNavigationBarHeight();
         
-        // Initialize vibrator
         try {
             vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
         } catch (Exception e) {
             Log.e(TAG, "Vibrator init error", e);
         }
         
-        // Initialize sound
         try {
             toneGenerator = new ToneGenerator(AudioManager.STREAM_SYSTEM, 50);
         } catch (Exception e) {
             Log.e(TAG, "ToneGenerator init error", e);
         }
         
-        // Register broadcast receiver
         IntentFilter filter = new IntentFilter();
         filter.addAction(KeyboardSettings.ACTION_SETTINGS_CHANGED);
         filter.addAction(KeyboardSettings.ACTION_TYPE_TEXT);
@@ -179,14 +181,12 @@ public class FastKeyboardService extends InputMethodService {
         Log.d(TAG, "onDestroy");
         stopRepeat();
         
-        // Unregister receiver
         try {
             unregisterReceiver(settingsReceiver);
         } catch (Exception e) {
             Log.e(TAG, "Unregister receiver error", e);
         }
         
-        // Release tone generator
         try {
             if (toneGenerator != null) {
                 toneGenerator.release();
@@ -196,12 +196,51 @@ public class FastKeyboardService extends InputMethodService {
         super.onDestroy();
     }
     
+    // ════════════════════════════════════════════════════════════════
+    // NAVIGATION BAR HEIGHT DETECTION
+    // ════════════════════════════════════════════════════════════════
+    
+    private void calculateNavigationBarHeight() {
+        try {
+            int resourceId = getResources().getIdentifier("navigation_bar_height", "dimen", "android");
+            if (resourceId > 0) {
+                navigationBarHeight = getResources().getDimensionPixelSize(resourceId);
+                Log.d(TAG, "Navigation bar height: " + navigationBarHeight);
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error getting nav bar height", e);
+            navigationBarHeight = dp(48); // Default fallback
+        }
+    }
+    
+    private boolean hasNavigationBar() {
+        // Check if device uses gesture navigation (no visible nav bar)
+        int resourceId = getResources().getIdentifier("config_showNavigationBar", "bool", "android");
+        if (resourceId > 0) {
+            return getResources().getBoolean(resourceId);
+        }
+        return true; // Assume it has nav bar by default
+    }
+    
+    // ════════════════════════════════════════════════════════════════
+    // INPUT VIEW CREATION
+    // ════════════════════════════════════════════════════════════════
+    
     @Override
     public View onCreateInputView() {
         Log.d(TAG, "onCreateInputView");
-        loadSettings(); // Reload settings every time keyboard appears
+        loadSettings();
+        calculateNavigationBarHeight();
+        
+        // Create root container
+        rootContainer = new FrameLayout(this);
+        rootContainer.setBackgroundColor(Color.parseColor(colorBackground));
+        
+        // Build keyboard
         keyboard = buildKeyboard();
-        return keyboard;
+        rootContainer.addView(keyboard);
+        
+        return rootContainer;
     }
     
     @Override
@@ -209,19 +248,29 @@ public class FastKeyboardService extends InputMethodService {
         super.onStartInputView(info, restarting);
         Log.d(TAG, "onStartInputView");
         
-        // Reset state
         isShift = false;
         isCaps = false;
         isSymbols = false;
         
-        // Auto-switch to numbers for number/phone fields
         int inputClass = info.inputType & EditorInfo.TYPE_MASK_CLASS;
         isNumbers = (inputClass == EditorInfo.TYPE_CLASS_NUMBER || 
                      inputClass == EditorInfo.TYPE_CLASS_PHONE);
         
-        // Reload settings (might have changed)
         loadSettings();
         refreshKeyboard();
+    }
+    
+    @Override
+    public void onComputeInsets(Insets outInsets) {
+        super.onComputeInsets(outInsets);
+        
+        if (rootContainer != null) {
+            // Calculate proper insets to position above navigation bar
+            int totalHeight = dp(keyboardHeight) + (showEmojiRow ? dp(44) : 0);
+            
+            outInsets.contentTopInsets = outInsets.visibleTopInsets;
+            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_FRAME;
+        }
     }
     
     // ════════════════════════════════════════════════════════════════
@@ -241,10 +290,10 @@ public class FastKeyboardService extends InputMethodService {
         colorTextNormal = settings.getColorText();
         colorTextSpecial = settings.getColorTextSpecial();
         
-        // Sizes
+        // Sizes - IMPROVED DEFAULTS
         keyboardHeight = settings.getKeyboardHeight();
         keyRadius = settings.getKeyRadius();
-        keyMargin = settings.getKeyMargin();
+        keyMargin = 2; // Fixed smaller margin for better touch targets
         keyTextSize = settings.getKeyTextSize();
         keySpecialTextSize = 14;
         
@@ -257,7 +306,7 @@ public class FastKeyboardService extends InputMethodService {
         showEmojiRow = settings.isShowEmojiRow();
         longPressDelay = settings.getLongPressDelay();
         
-        Log.d(TAG, "Settings loaded - bg:" + colorBackground + ", vibrate:" + vibrateEnabled);
+        Log.d(TAG, "Settings loaded - height:" + keyboardHeight + ", vibrate:" + vibrateEnabled);
     }
     
     // ════════════════════════════════════════════════════════════════
@@ -268,13 +317,23 @@ public class FastKeyboardService extends InputMethodService {
         LinearLayout kb = new LinearLayout(this);
         kb.setOrientation(LinearLayout.VERTICAL);
         kb.setBackgroundColor(Color.parseColor(colorBackground));
-        kb.setPadding(dp(4), dp(10), dp(4), dp(14));
         
-        // Calculate total height including emoji row if enabled
-        int totalHeight = keyboardHeight + (showEmojiRow ? 50 : 0);
+        // Minimal padding for maximum key space
+        int sidePadding = dp(3);
+        int topPadding = dp(6);
+        int bottomPadding = dp(8);
+        
+        kb.setPadding(sidePadding, topPadding, sidePadding, bottomPadding);
+        
+        // Calculate total height
+        int totalHeight = dp(keyboardHeight);
+        if (showEmojiRow) {
+            totalHeight += dp(44);
+        }
+        
         kb.setLayoutParams(new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT, 
-            dp(totalHeight)
+            totalHeight
         ));
         
         // Add emoji row if enabled
@@ -296,12 +355,11 @@ public class FastKeyboardService extends InputMethodService {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.setLayoutParams(new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(44)
         ));
-        row.setPadding(dp(2), dp(4), dp(2), dp(4));
+        row.setPadding(dp(2), dp(2), dp(2), dp(4));
         row.setBackgroundColor(Color.parseColor(colorKeySpecial));
         
-        // Get custom emojis from settings
         String emojiStr = settings.getQuickEmojis();
         String[] emojis = emojiStr.split(",");
         
@@ -335,11 +393,14 @@ public class FastKeyboardService extends InputMethodService {
         row.setLayoutParams(new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
         ));
-        row.setPadding(0, dp(3), 0, dp(3));
         
-        // Add padding for second row (QWERTY style)
+        // Minimal vertical padding between rows
+        int vertPadding = dp(2);
+        row.setPadding(0, vertPadding, 0, vertPadding);
+        
+        // Add slight horizontal padding for second row (QWERTY offset)
         if (rowIndex == 1) {
-            row.setPadding(dp(16), dp(3), dp(16), dp(3));
+            row.setPadding(dp(12), vertPadding, dp(12), vertPadding);
         }
         
         for (String key : keys) {
@@ -362,26 +423,29 @@ public class FastKeyboardService extends InputMethodService {
         // Special key adjustments
         if (key.equals("↵")) {
             textColor = Color.WHITE;
-            textSize = 22;
+            textSize = 20;
         }
         if (key.equals("⇧")) {
             if (isCaps) textColor = Color.parseColor("#10b981");
             else if (isShift) textColor = Color.parseColor("#3b82f6");
-            textSize = 22;
+            textSize = 20;
         }
         if (key.equals("⌫") || key.equals("🌐") || key.equals("✨")) {
-            textSize = 20;
+            textSize = 18;
         }
         
         tv.setTextColor(textColor);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize);
         
-        // Layout params with weight
+        // Layout params with weight - REDUCED MARGINS
         float weight = getKeyWeight(key);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, weight
         );
-        params.setMargins(dp(keyMargin), 0, dp(keyMargin), 0);
+        
+        // Minimal margins for better touch targets
+        int margin = dp(keyMargin);
+        params.setMargins(margin, 0, margin, 0);
         tv.setLayoutParams(params);
         
         // Background
@@ -399,7 +463,7 @@ public class FastKeyboardService extends InputMethodService {
             case "⇧":
                 return (isShift || isCaps) ? "⬆" : "⇧";
             case "SPACE":
-                return "space";
+                return ""; // Empty for cleaner look
             default:
                 if (key.length() == 1 && Character.isLetter(key.charAt(0))) {
                     return (isShift || isCaps) ? key.toUpperCase() : key.toLowerCase();
@@ -416,10 +480,10 @@ public class FastKeyboardService extends InputMethodService {
     
     private float getKeyWeight(String key) {
         switch (key) {
-            case "SPACE": return 4f;
-            case "⇧": case "⌫": return 1.5f;
+            case "SPACE": return 4.5f; // Wider space bar
+            case "⇧": case "⌫": return 1.4f;
             case "↵": case "123": case "ABC": case "#+=": return 1.3f;
-            case "🌐": case "✨": return 0.9f;
+            case "🌐": case "✨": return 0.85f;
             default: return 1f;
         }
     }
@@ -456,7 +520,7 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     // ════════════════════════════════════════════════════════════════
-    // TOUCH HANDLING
+    // TOUCH HANDLING - IMPROVED
     // ════════════════════════════════════════════════════════════════
     
     private boolean handleTouch(View v, MotionEvent e, String key) {
@@ -464,8 +528,8 @@ public class FastKeyboardService extends InputMethodService {
             case MotionEvent.ACTION_DOWN:
                 // Visual feedback
                 v.setAlpha(0.7f);
-                v.setScaleX(0.95f);
-                v.setScaleY(0.95f);
+                v.setScaleX(0.96f);
+                v.setScaleY(0.96f);
                 
                 // Haptic & sound feedback
                 doVibrate();
@@ -474,8 +538,8 @@ public class FastKeyboardService extends InputMethodService {
                 // Process key
                 processKey(key);
                 
-                // Start repeat for backspace
-                if (key.equals("⌫")) {
+                // Start repeat for backspace and space
+                if (key.equals("⌫") || key.equals("SPACE")) {
                     startRepeat(key);
                 }
                 return true;
@@ -577,12 +641,10 @@ public class FastKeyboardService extends InputMethodService {
                 break;
                 
             case "🌐":
-                // Language switch - open popup
                 openPopup("language");
                 break;
                 
             case "✨":
-                // Open tools popup
                 openPopup("tools");
                 break;
                 
@@ -628,7 +690,7 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     // ════════════════════════════════════════════════════════════════
-    // FEEDBACK (VIBRATION & SOUND)
+    // FEEDBACK
     // ════════════════════════════════════════════════════════════════
     
     private void doVibrate() {
@@ -666,19 +728,32 @@ public class FastKeyboardService extends InputMethodService {
         if (keyboard != null) {
             keyboard.removeAllViews();
             
-            // Re-add emoji row if enabled
             if (showEmojiRow) {
                 keyboard.addView(buildEmojiRow());
             }
             
-            // Re-add keyboard rows
             String[][] layout = getActiveLayout();
             for (int i = 0; i < layout.length; i++) {
                 keyboard.addView(buildRow(layout[i], i));
             }
             
-            // Update background color
             keyboard.setBackgroundColor(Color.parseColor(colorBackground));
+            
+            // Update keyboard height
+            int totalHeight = dp(keyboardHeight);
+            if (showEmojiRow) {
+                totalHeight += dp(44);
+            }
+            
+            ViewGroup.LayoutParams params = keyboard.getLayoutParams();
+            if (params != null) {
+                params.height = totalHeight;
+                keyboard.setLayoutParams(params);
+            }
+        }
+        
+        if (rootContainer != null) {
+            rootContainer.setBackgroundColor(Color.parseColor(colorBackground));
         }
     }
     

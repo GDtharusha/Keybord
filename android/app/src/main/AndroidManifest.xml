@@ -4,6 +4,7 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 
     <application
         android:allowBackup="true"
@@ -25,9 +26,10 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity> 
+        </activity>
+        
         <activity
-            android:name="com.keybord.app.PopupActivity"
+            android:name=".PopupActivity"
             android:exported="false"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
@@ -35,7 +37,7 @@
             android:launchMode="singleInstance" />
 
         <service
-            android:name="com.keybord.app.FastKeyboardService"
+            android:name=".FastKeyboardService"
             android:exported="true"
             android:label="KeyBord"
             android:permission="android.permission.BIND_INPUT_METHOD">
@@ -46,10 +48,6 @@
                 android:name="android.view.im"
                 android:resource="@xml/method" />
         </service>
-
-        <service
-            android:name="com.keybord.app.FloatingWindowService"
-            android:exported="false" />
 
         <provider
             android:name="androidx.core.content.FileProvider"

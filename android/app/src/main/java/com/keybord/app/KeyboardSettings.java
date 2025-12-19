@@ -9,12 +9,11 @@ public class KeyboardSettings {
     private SharedPreferences prefs;
     private SharedPreferences.Editor editor;
     
-    // Broadcast action for settings changed
     public static final String ACTION_SETTINGS_CHANGED = "com.keybord.app.SETTINGS_CHANGED";
     public static final String ACTION_TYPE_TEXT = "com.keybord.app.TYPE_TEXT";
     
     // ════════════════════════════════════════════════════════════════
-    // DEFAULT VALUES - මෙතනින් default settings වෙනස් කරන්න පුළුවන්
+    // DEFAULT VALUES - IMPROVED FOR BETTER UX
     // ════════════════════════════════════════════════════════════════
     
     // Colors
@@ -27,11 +26,11 @@ public class KeyboardSettings {
     public static final String DEF_COLOR_TEXT = "#FFFFFF";
     public static final String DEF_COLOR_TEXT_SPECIAL = "#9ca3af";
     
-    // Sizes
-    public static final int DEF_KEYBOARD_HEIGHT = 320;
-    public static final int DEF_KEY_TEXT_SIZE = 24;
-    public static final int DEF_KEY_RADIUS = 10;
-    public static final int DEF_KEY_MARGIN = 3;
+    // Sizes - INCREASED for better touch targets
+    public static final int DEF_KEYBOARD_HEIGHT = 280;  // Increased from 320
+    public static final int DEF_KEY_TEXT_SIZE = 22;     // Slightly smaller for fit
+    public static final int DEF_KEY_RADIUS = 8;         // Slightly less round
+    public static final int DEF_KEY_MARGIN = 2;         // Reduced from 3
     
     // Haptics & Sound
     public static final boolean DEF_VIBRATION_ENABLED = true;
@@ -42,7 +41,7 @@ public class KeyboardSettings {
     // Features
     public static final boolean DEF_SHOW_EMOJI_ROW = false;
     public static final boolean DEF_POPUP_ON_PRESS = true;
-    public static final int DEF_LONG_PRESS_DELAY = 400;
+    public static final int DEF_LONG_PRESS_DELAY = 350; // Faster long press
     
     // ════════════════════════════════════════════════════════════════
     
@@ -219,13 +218,15 @@ public class KeyboardSettings {
                 setColorKeySpecial("#252540");
                 setColorKeyEnter("#2563eb");
                 setColorText("#FFFFFF");
+                setColorTextSpecial("#9ca3af");
                 break;
             case "light":
-                setColorBackground("#f0f0f5");
+                setColorBackground("#e8e8f0");
                 setColorKey("#ffffff");
-                setColorKeySpecial("#e0e0e5");
+                setColorKeySpecial("#d0d0d8");
                 setColorKeyEnter("#2563eb");
                 setColorText("#1a1a2e");
+                setColorTextSpecial("#6b7280");
                 break;
             case "blue":
                 setColorBackground("#0f172a");
@@ -233,6 +234,7 @@ public class KeyboardSettings {
                 setColorKeySpecial("#0c2340");
                 setColorKeyEnter("#3b82f6");
                 setColorText("#FFFFFF");
+                setColorTextSpecial("#94a3b8");
                 break;
             case "green":
                 setColorBackground("#0f1f0f");
@@ -240,6 +242,7 @@ public class KeyboardSettings {
                 setColorKeySpecial("#0d2d0d");
                 setColorKeyEnter("#10b981");
                 setColorText("#FFFFFF");
+                setColorTextSpecial("#86efac");
                 break;
             case "purple":
                 setColorBackground("#1a0a2e");
@@ -247,6 +250,7 @@ public class KeyboardSettings {
                 setColorKeySpecial("#251540");
                 setColorKeyEnter("#8b5cf6");
                 setColorText("#FFFFFF");
+                setColorTextSpecial("#c4b5fd");
                 break;
             case "red":
                 setColorBackground("#1f0f0f");
@@ -254,6 +258,7 @@ public class KeyboardSettings {
                 setColorKeySpecial("#2d0d0d");
                 setColorKeyEnter("#ef4444");
                 setColorText("#FFFFFF");
+                setColorTextSpecial("#fca5a5");
                 break;
         }
         setCurrentTheme(themeName);
