@@ -199,77 +199,147 @@
             color: #fff;
         }
         
-        .btn-warning {
-            background: linear-gradient(180deg, #f59e0b, #d97706);
-            color: #fff;
-        }
-        
         .section-label {
             font-size: 13px;
             color: rgba(255, 255, 255, 0.6);
             margin-bottom: 12px;
             display: block;
         }
+        /* Theme Options - 3 buttons */
         
-        .theme-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+        .theme-options {
+            display: flex;
             gap: 10px;
             margin-bottom: 16px;
         }
         
-        .theme-card {
-            aspect-ratio: 1.3;
-            border-radius: 14px;
+        .theme-option {
+            flex: 1;
+            padding: 16px 12px;
+            border-radius: 12px;
+            text-align: center;
             cursor: pointer;
-            transition: transform 0.15s, box-shadow 0.15s;
-            position: relative;
-            overflow: hidden;
             border: 3px solid transparent;
+            transition: all 0.2s;
         }
         
-        .theme-card:active {
+        .theme-option:active {
             transform: scale(0.95);
         }
         
-        .theme-card.selected {
-            border-color: #fff;
-            box-shadow: 0 0 20px rgba(59, 130, 246, 0.5);
+        .theme-option.selected {
+            border-color: #3b82f6;
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.4);
         }
         
-        .theme-label {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            padding: 6px;
-            font-size: 11px;
+        .theme-option .theme-preview {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            margin: 0 auto 8px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .theme-option .theme-name {
+            font-size: 12px;
             font-weight: 600;
-            text-align: center;
-            background: rgba(0, 0, 0, 0.6);
         }
         
-        .color-grid {
-            display: grid;
-            grid-template-columns: repeat(6, 1fr);
+        .theme-black {
+            background: #1a1a2e;
+        }
+        
+        .theme-black .theme-preview {
+            background: linear-gradient(135deg, #000000, #1a1a1a);
+        }
+        
+        .theme-white {
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        .theme-white .theme-preview {
+            background: linear-gradient(135deg, #ffffff, #e0e0e0);
+        }
+        
+        .theme-white .theme-name {
+            color: #fff;
+        }
+        
+        .theme-custom {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+        
+        .theme-custom .theme-preview {
+            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
+            border: none;
+        }
+        /* Color Picker */
+        
+        .color-picker-row {
+            display: flex;
             gap: 10px;
+            align-items: center;
+            margin-bottom: 12px;
         }
         
-        .color-btn {
-            aspect-ratio: 1;
+        .color-option {
+            width: 44px;
+            height: 44px;
             border-radius: 12px;
-            border: 3px solid transparent;
             cursor: pointer;
-            transition: transform 0.15s, border-color 0.15s;
+            border: 3px solid transparent;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
         }
         
-        .color-btn:active {
+        .color-option:active {
             transform: scale(0.9);
         }
         
-        .color-btn.selected {
-            border-color: #fff;
+        .color-option.selected {
+            border-color: #3b82f6;
             transform: scale(1.1);
+        }
+        
+        .color-option-black {
+            background: #000000;
+            border: 2px solid #333;
+        }
+        
+        .color-option-white {
+            background: #ffffff;
+        }
+        
+        .color-option-custom {
+            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .custom-color-input {
+            flex: 1;
+            height: 44px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0 12px;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .custom-color-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        
+        .color-preview-box {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
         }
         
         .setting-row {
@@ -331,6 +401,10 @@
         .slider-container {
             padding: 14px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .slider-container:last-child {
+            border-bottom: none;
         }
         
         .slider-header {
@@ -470,41 +544,45 @@
         </button>
     </div>
 
+    <!-- Theme Card -->
     <div class="card">
-        <h2>🎨 Theme</h2>
-        <span class="section-label">Select Theme</span>
-        <div class="theme-grid" id="themeGrid">
-            <div class="theme-card selected" data-theme="dark" style="background: linear-gradient(135deg, #1a1a2e, #3d3d5c);" onclick="selectTheme('dark')">
-                <span class="theme-label">Dark</span>
+        <h2>🎨 Keyboard Theme</h2>
+        <span class="section-label">Background Color</span>
+        <div class="theme-options">
+            <div class="theme-option theme-black selected" data-theme="black" onclick="selectTheme('black')">
+                <div class="theme-preview"></div>
+                <div class="theme-name">Black</div>
             </div>
-            <div class="theme-card" data-theme="light" style="background: linear-gradient(135deg, #f0f0f5, #ffffff);" onclick="selectTheme('light')">
-                <span class="theme-label" style="color:#333">Light</span>
+            <div class="theme-option theme-white" data-theme="white" onclick="selectTheme('white')">
+                <div class="theme-preview"></div>
+                <div class="theme-name">White</div>
             </div>
-            <div class="theme-card" data-theme="blue" style="background: linear-gradient(135deg, #0f172a, #1e3a5f);" onclick="selectTheme('blue')">
-                <span class="theme-label">Ocean</span>
-            </div>
-            <div class="theme-card" data-theme="green" style="background: linear-gradient(135deg, #0f1f0f, #1a3d1a);" onclick="selectTheme('green')">
-                <span class="theme-label">Forest</span>
-            </div>
-            <div class="theme-card" data-theme="purple" style="background: linear-gradient(135deg, #1a0a2e, #3d2d5c);" onclick="selectTheme('purple')">
-                <span class="theme-label">Purple</span>
-            </div>
-            <div class="theme-card" data-theme="red" style="background: linear-gradient(135deg, #1f0f0f, #3d1a1a);" onclick="selectTheme('red')">
-                <span class="theme-label">Cherry</span>
+            <div class="theme-option theme-custom" data-theme="custom" onclick="selectTheme('custom')">
+                <div class="theme-preview"></div>
+                <div class="theme-name">Custom</div>
             </div>
         </div>
 
-        <span class="section-label">Accent Color</span>
-        <div class="color-grid" id="accentGrid">
-            <div class="color-btn selected" style="background:#3b82f6" data-color="#3b82f6" onclick="selectAccentColor(this)"></div>
-            <div class="color-btn" style="background:#8b5cf6" data-color="#8b5cf6" onclick="selectAccentColor(this)"></div>
-            <div class="color-btn" style="background:#ec4899" data-color="#ec4899" onclick="selectAccentColor(this)"></div>
-            <div class="color-btn" style="background:#10b981" data-color="#10b981" onclick="selectAccentColor(this)"></div>
-            <div class="color-btn" style="background:#f59e0b" data-color="#f59e0b" onclick="selectAccentColor(this)"></div>
-            <div class="color-btn" style="background:#ef4444" data-color="#ef4444" onclick="selectAccentColor(this)"></div>
+        <!-- Custom Background Color -->
+        <div id="customBgSection" style="display:none;">
+            <span class="section-label">Custom Background Color</span>
+            <div class="color-picker-row">
+                <input type="text" class="custom-color-input" id="customBgColor" placeholder="#1a1a2e" value="#1a1a2e" oninput="updateCustomBgColor(this.value)">
+                <div class="color-preview-box" id="bgColorPreview" style="background:#1a1a2e;"></div>
+            </div>
+        </div>
+
+        <!-- Text Color -->
+        <span class="section-label">Text Color</span>
+        <div class="color-picker-row">
+            <div class="color-option color-option-white selected" data-textcolor="white" onclick="selectTextColor('white')">A</div>
+            <div class="color-option color-option-black" data-textcolor="black" onclick="selectTextColor('black')" style="color:#fff;">A</div>
+            <div class="color-option color-option-custom" data-textcolor="custom" onclick="selectTextColor('custom')">🎨</div>
+            <input type="text" class="custom-color-input" id="customTextColor" placeholder="#ffffff" value="#ffffff" oninput="updateCustomTextColor(this.value)" style="display:none;">
         </div>
     </div>
 
+    <!-- Settings Card -->
     <div class="card">
         <h2>⚙️ Preferences</h2>
 
@@ -526,14 +604,6 @@
 
         <div class="setting-row">
             <div class="setting-info">
-                <div class="label">Key Sound</div>
-                <div class="sublabel">Play sound on key press</div>
-            </div>
-            <div class="toggle" id="toggle_sound" onclick="toggleSetting('sound')"></div>
-        </div>
-
-        <div class="setting-row">
-            <div class="setting-info">
                 <div class="label">Quick Emoji Row</div>
                 <div class="sublabel">Show emoji row above keyboard</div>
             </div>
@@ -548,6 +618,22 @@
             <input type="range" class="slider" id="heightSlider" min="200" max="300" value="245" oninput="updateKeyboardHeight(this.value)">
         </div>
 
+        <div class="slider-container">
+            <div class="slider-header">
+                <span class="slider-label">Key Size</span>
+                <span class="slider-value" id="keySizeValue">20sp</span>
+            </div>
+            <input type="range" class="slider" id="keySizeSlider" min="16" max="28" value="20" oninput="updateKeySize(this.value)">
+        </div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <span class="slider-label">Key Gap</span>
+                <span class="slider-value" id="keyGapValue">2dp</span>
+            </div>
+            <input type="range" class="slider" id="keyGapSlider" min="0" max="10" value="2" oninput="updateKeyGap(this.value)">
+        </div>
+
         <div class="slider-container" style="border-bottom:none;">
             <div class="slider-header">
                 <span class="slider-label">Key Roundness</span>
@@ -557,6 +643,7 @@
         </div>
     </div>
 
+    <!-- Tools Card -->
     <div class="card">
         <h2>🛠️ Tools</h2>
         <button class="btn btn-accent" onclick="showFloatingWindow()">
@@ -570,12 +657,13 @@
         </button>
     </div>
 
+    <!-- Test Card -->
     <div class="card">
         <h2>🧪 Test Keyboard</h2>
         <div class="test-section">
-            <label class="section-label">Tap below to test your keyboard:</label>
+            <label class="section-label">Tap below to test (try emojis too 😀🔥❤️):</label>
             <input type="text" class="test-input" placeholder="Type something here...">
-            <input type="text" class="test-input" placeholder="Try another field..." style="margin-top:8px;">
+            <input type="text" class="test-input" placeholder="Try deleting emojis..." style="margin-top:8px;">
         </div>
     </div>
 
@@ -590,6 +678,12 @@
         var bridgeReady = false;
         var connectionCheckInterval = null;
         var checkCount = 0;
+
+        // Current settings state
+        var currentTheme = 'black';
+        var currentTextColor = 'white';
+        var customBgColor = '#1a1a2e';
+        var customTextColorValue = '#ffffff';
 
         function getNativeBridge() {
             if (typeof NativeSettings !== 'undefined' && NativeSettings !== null) {
@@ -639,10 +733,8 @@
 
         function startConnectionCheck() {
             checkCount = 0;
-
             connectionCheckInterval = setInterval(function() {
                 checkCount++;
-
                 if (isBridgeAvailable()) {
                     clearInterval(connectionCheckInterval);
                     connectionCheckInterval = null;
@@ -667,17 +759,10 @@
         }
 
         function checkAllStatus() {
-            if (!bridgeReady) {
-                setStatusOffline();
-                return;
-            }
-
+            if (!bridgeReady) return;
             try {
                 var bridge = getNativeBridge();
-                if (!bridge) {
-                    setStatusOffline();
-                    return;
-                }
+                if (!bridge) return;
 
                 var isEnabled = bridge.isKeyboardEnabled();
                 var enabledEl = document.getElementById('statusEnabled');
@@ -695,17 +780,7 @@
                 overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
             } catch (e) {
                 console.error('Status check error:', e);
-                setStatusOffline();
             }
-        }
-
-        function setStatusOffline() {
-            document.getElementById('statusEnabled').textContent = 'Offline';
-            document.getElementById('statusEnabled').className = 'value warning';
-            document.getElementById('statusActive').textContent = 'Offline';
-            document.getElementById('statusActive').className = 'value warning';
-            document.getElementById('statusOverlay').textContent = 'Offline';
-            document.getElementById('statusOverlay').className = 'value warning';
         }
 
         function openKeyboardSettings() {
@@ -713,9 +788,7 @@
                 try {
                     getNativeBridge().openKeyboardSettings();
                     showToast('📱 Opening settings...');
-                } catch (e) {
-                    showToast('❌ Error: ' + e.message);
-                }
+                } catch (e) {}
             } else {
                 showToast('📱 Go to: Settings → System → Keyboard');
             }
@@ -726,11 +799,7 @@
                 try {
                     getNativeBridge().showKeyboardPicker();
                     showToast('⌨️ Select KeyBord');
-                } catch (e) {
-                    showToast('❌ Error: ' + e.message);
-                }
-            } else {
-                showToast('⌨️ Switch keyboard manually');
+                } catch (e) {}
             }
         }
 
@@ -739,11 +808,7 @@
                 try {
                     getNativeBridge().requestOverlayPermission();
                     showToast('🔓 Opening permissions...');
-                } catch (e) {
-                    showToast('❌ Error: ' + e.message);
-                }
-            } else {
-                showToast('🔓 Not available offline');
+                } catch (e) {}
             }
         }
 
@@ -751,52 +816,116 @@
             if (bridgeReady) {
                 try {
                     getNativeBridge().showFloatingWindow();
-                    showToast('✨ Opening popup...');
-                } catch (e) {
-                    showToast('❌ Error: ' + e.message);
-                }
-            } else {
-                showToast('✨ Not available offline');
+                } catch (e) {}
             }
         }
 
-        function selectTheme(themeName) {
-            document.querySelectorAll('.theme-card').forEach(function(card) {
-                card.classList.remove('selected');
-                if (card.dataset.theme === themeName) {
-                    card.classList.add('selected');
+        // ═══════════════════════════════════════════════════════════════
+        // THEME FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════
+
+        function selectTheme(theme) {
+            currentTheme = theme;
+
+            document.querySelectorAll('.theme-option').forEach(function(el) {
+                el.classList.remove('selected');
+                if (el.dataset.theme === theme) {
+                    el.classList.add('selected');
                 }
             });
 
-            localStorage.setItem('theme', themeName);
+            document.getElementById('customBgSection').style.display = (theme === 'custom') ? 'block' : 'none';
+
+            var bgColor = '#1a1a2e';
+            if (theme === 'black') {
+                bgColor = '#000000';
+            } else if (theme === 'white') {
+                bgColor = '#f5f5f5';
+            } else if (theme === 'custom') {
+                bgColor = customBgColor;
+            }
+
+            localStorage.setItem('theme', theme);
+            localStorage.setItem('bg_color', bgColor);
 
             if (bridgeReady) {
                 try {
-                    getNativeBridge().applyTheme(themeName);
+                    getNativeBridge().setBackgroundColor(bgColor);
+                    // Auto-adjust text color for white theme
+                    if (theme === 'white' && currentTextColor === 'white') {
+                        selectTextColor('black');
+                    }
                 } catch (e) {}
             }
 
-            showToast('🎨 Theme: ' + themeName);
+            showToast('🎨 Theme: ' + theme);
         }
 
-        function selectAccentColor(element) {
-            var color = element.dataset.color;
+        function updateCustomBgColor(color) {
+            if (color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                customBgColor = color;
+                document.getElementById('bgColorPreview').style.background = color;
+                localStorage.setItem('custom_bg_color', color);
+                localStorage.setItem('bg_color', color);
 
-            document.querySelectorAll('#accentGrid .color-btn').forEach(function(btn) {
-                btn.classList.remove('selected');
+                if (bridgeReady && currentTheme === 'custom') {
+                    try {
+                        getNativeBridge().setBackgroundColor(color);
+                    } catch (e) {}
+                }
+            }
+        }
+
+        function selectTextColor(colorType) {
+            currentTextColor = colorType;
+
+            document.querySelectorAll('.color-option').forEach(function(el) {
+                el.classList.remove('selected');
+                if (el.dataset.textcolor === colorType) {
+                    el.classList.add('selected');
+                }
             });
-            element.classList.add('selected');
 
-            localStorage.setItem('accent_color', color);
+            document.getElementById('customTextColor').style.display = (colorType === 'custom') ? 'block' : 'none';
+
+            var textColor = '#ffffff';
+            if (colorType === 'white') {
+                textColor = '#ffffff';
+            } else if (colorType === 'black') {
+                textColor = '#000000';
+            } else if (colorType === 'custom') {
+                textColor = customTextColorValue;
+            }
+
+            localStorage.setItem('text_color_type', colorType);
+            localStorage.setItem('text_color', textColor);
 
             if (bridgeReady) {
                 try {
-                    getNativeBridge().setColorAccent(color);
+                    getNativeBridge().setTextColor(textColor);
                 } catch (e) {}
             }
 
-            showToast('🎨 Color updated!');
+            showToast('🎨 Text color updated');
         }
+
+        function updateCustomTextColor(color) {
+            if (color.match(/^#[0-9A-Fa-f]{6}$/)) {
+                customTextColorValue = color;
+                localStorage.setItem('custom_text_color', color);
+                localStorage.setItem('text_color', color);
+
+                if (bridgeReady && currentTextColor === 'custom') {
+                    try {
+                        getNativeBridge().setTextColor(color);
+                    } catch (e) {}
+                }
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // SETTINGS FUNCTIONS
+        // ═══════════════════════════════════════════════════════════════
 
         function toggleSetting(settingName) {
             var toggle = document.getElementById('toggle_' + settingName);
@@ -838,6 +967,26 @@
             }
         }
 
+        function updateKeySize(value) {
+            document.getElementById('keySizeValue').textContent = value + 'sp';
+            localStorage.setItem('key_text_size', value);
+            if (bridgeReady) {
+                try {
+                    getNativeBridge().saveSettingInt('key_text_size', parseInt(value));
+                } catch (e) {}
+            }
+        }
+
+        function updateKeyGap(value) {
+            document.getElementById('keyGapValue').textContent = value + 'dp';
+            localStorage.setItem('key_gap', value);
+            if (bridgeReady) {
+                try {
+                    getNativeBridge().saveSettingInt('key_gap', parseInt(value));
+                } catch (e) {}
+            }
+        }
+
         function updateKeyRadius(value) {
             document.getElementById('radiusValue').textContent = value + 'dp';
             localStorage.setItem('key_radius', value);
@@ -861,6 +1010,10 @@
             }
         }
 
+        // ═══════════════════════════════════════════════════════════════
+        // LOAD SETTINGS
+        // ═══════════════════════════════════════════════════════════════
+
         function loadAllSettings() {
             if (!bridgeReady) {
                 loadFromLocalStorage();
@@ -870,18 +1023,14 @@
             try {
                 var bridge = getNativeBridge();
 
-                var currentTheme = bridge.getCurrentTheme();
-                document.querySelectorAll('.theme-card').forEach(function(card) {
-                    card.classList.toggle('selected', card.dataset.theme === currentTheme);
-                });
-
+                // Load toggles
                 var vibEnabled = bridge.getSettingBool('vibration', true);
                 document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
                 document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
 
-                document.getElementById('toggle_sound').classList.toggle('active', bridge.getSettingBool('sound', false));
                 document.getElementById('toggle_emoji_row').classList.toggle('active', bridge.getSettingBool('emoji_row', false));
 
+                // Load sliders
                 var vibStrength = bridge.getSettingInt('vibration_strength', 5);
                 document.getElementById('vibrationStrengthSlider').value = vibStrength;
                 document.getElementById('vibrationValue').textContent = vibStrength + 'ms';
@@ -890,9 +1039,21 @@
                 document.getElementById('heightSlider').value = kbHeight;
                 document.getElementById('heightValue').textContent = kbHeight + 'dp';
 
+                var keySize = bridge.getSettingInt('key_text_size', 20);
+                document.getElementById('keySizeSlider').value = keySize;
+                document.getElementById('keySizeValue').textContent = keySize + 'sp';
+
+                var keyGap = bridge.getSettingInt('key_gap', 2);
+                document.getElementById('keyGapSlider').value = keyGap;
+                document.getElementById('keyGapValue').textContent = keyGap + 'dp';
+
                 var keyRadius = bridge.getSettingInt('key_radius', 8);
                 document.getElementById('radiusSlider').value = keyRadius;
                 document.getElementById('radiusValue').textContent = keyRadius + 'dp';
+
+                // Load theme
+                var theme = bridge.getSetting('theme', 'black');
+                selectThemeUI(theme);
 
             } catch (e) {
                 console.error('Error loading settings:', e);
@@ -900,26 +1061,39 @@
             }
         }
 
+        function selectThemeUI(theme) {
+            currentTheme = theme;
+            document.querySelectorAll('.theme-option').forEach(function(el) {
+                el.classList.toggle('selected', el.dataset.theme === theme);
+            });
+            document.getElementById('customBgSection').style.display = (theme === 'custom') ? 'block' : 'none';
+        }
+
         function loadFromLocalStorage() {
             var vibEnabled = localStorage.getItem('vibration') !== 'false';
             document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
             document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
 
-            document.getElementById('toggle_sound').classList.toggle('active', localStorage.getItem('sound') === 'true');
             document.getElementById('toggle_emoji_row').classList.toggle('active', localStorage.getItem('emoji_row') === 'true');
-
-            var savedTheme = localStorage.getItem('theme') || 'dark';
-            document.querySelectorAll('.theme-card').forEach(function(card) {
-                card.classList.toggle('selected', card.dataset.theme === savedTheme);
-            });
 
             var kbHeight = localStorage.getItem('keyboard_height') || '245';
             document.getElementById('heightSlider').value = kbHeight;
             document.getElementById('heightValue').textContent = kbHeight + 'dp';
 
+            var keySize = localStorage.getItem('key_text_size') || '20';
+            document.getElementById('keySizeSlider').value = keySize;
+            document.getElementById('keySizeValue').textContent = keySize + 'sp';
+
+            var keyGap = localStorage.getItem('key_gap') || '2';
+            document.getElementById('keyGapSlider').value = keyGap;
+            document.getElementById('keyGapValue').textContent = keyGap + 'dp';
+
             var keyRadius = localStorage.getItem('key_radius') || '8';
             document.getElementById('radiusSlider').value = keyRadius;
             document.getElementById('radiusValue').textContent = keyRadius + 'dp';
+
+            var savedTheme = localStorage.getItem('theme') || 'black';
+            selectThemeUI(savedTheme);
         }
 
         function showToast(message) {
@@ -937,15 +1111,11 @@
         });
 
         window.addEventListener('focus', function() {
-            if (bridgeReady) {
-                checkAllStatus();
-            }
+            if (bridgeReady) checkAllStatus();
         });
 
         setInterval(function() {
-            if (bridgeReady) {
-                checkAllStatus();
-            }
+            if (bridgeReady) checkAllStatus();
         }, 5000);
     </script>
 </body>

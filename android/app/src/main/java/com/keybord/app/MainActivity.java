@@ -26,9 +26,8 @@ public class MainActivity extends BridgeActivity {
         
         settings = new KeyboardSettings(this);
         
-        // Add JavaScript interface BEFORE page loads
         getBridge().getWebView().addJavascriptInterface(new NativeSettingsBridge(), "NativeSettings");
-        Log.d(TAG, "NativeSettings bridge added in onCreate");
+        Log.d(TAG, "NativeSettings bridge added");
     }
     
     public class NativeSettingsBridge {
@@ -48,9 +47,7 @@ public class MainActivity extends BridgeActivity {
                         return true;
                     }
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error checking keyboard enabled", e);
-            }
+            } catch (Exception e) {}
             return false;
         }
         
@@ -62,9 +59,7 @@ public class MainActivity extends BridgeActivity {
                     Settings.Secure.DEFAULT_INPUT_METHOD
                 );
                 return currentIME != null && currentIME.contains(getPackageName());
-            } catch (Exception e) {
-                Log.e(TAG, "Error checking keyboard active", e);
-            }
+            } catch (Exception e) {}
             return false;
         }
         
@@ -79,9 +74,7 @@ public class MainActivity extends BridgeActivity {
                 Intent intent = new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            } catch (Exception e) {
-                Log.e(TAG, "Error opening keyboard settings", e);
-            }
+            } catch (Exception e) {}
         }
         
         @JavascriptInterface
@@ -89,9 +82,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
                 imm.showInputMethodPicker();
-            } catch (Exception e) {
-                Log.e(TAG, "Error showing keyboard picker", e);
-            }
+            } catch (Exception e) {}
         }
         
         @JavascriptInterface
@@ -103,9 +94,7 @@ public class MainActivity extends BridgeActivity {
                 );
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            } catch (Exception e) {
-                Log.e(TAG, "Error requesting overlay permission", e);
-            }
+            } catch (Exception e) {}
         }
         
         @JavascriptInterface
@@ -115,9 +104,6 @@ public class MainActivity extends BridgeActivity {
                     case "vibration":
                         settings.setVibrationEnabled(value);
                         break;
-                    case "sound":
-                        settings.setSoundEnabled(value);
-                        break;
                     case "emoji_row":
                         settings.setShowEmojiRow(value);
                         break;
@@ -126,9 +112,7 @@ public class MainActivity extends BridgeActivity {
                         prefs.edit().putBoolean(key, value).apply();
                 }
                 notifyKeyboard();
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving bool setting", e);
-            }
+            } catch (Exception e) {}
         }
         
         @JavascriptInterface
@@ -137,18 +121,14 @@ public class MainActivity extends BridgeActivity {
                 switch (key) {
                     case "vibration":
                         return settings.isVibrationEnabled();
-                    case "sound":
-                        return settings.isSoundEnabled();
                     case "emoji_row":
                         return settings.isShowEmojiRow();
                     default:
                         android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
                         return prefs.getBoolean(key, defaultValue);
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error getting bool setting", e);
-                return defaultValue;
-            }
+            } catch (Exception e) {}
+            return defaultValue;
         }
         
         @JavascriptInterface
@@ -167,14 +147,15 @@ public class MainActivity extends BridgeActivity {
                     case "key_text_size":
                         settings.setKeyTextSize(value);
                         break;
+                    case "key_gap":
+                        settings.setKeyGap(value);
+                        break;
                     default:
                         android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
                         prefs.edit().putInt(key, value).apply();
                 }
                 notifyKeyboard();
-            } catch (Exception e) {
-                Log.e(TAG, "Error saving int setting", e);
-            }
+            } catch (Exception e) {}
         }
         
         @JavascriptInterface
@@ -189,30 +170,60 @@ public class MainActivity extends BridgeActivity {
                         return settings.getKeyRadius();
                     case "key_text_size":
                         return settings.getKeyTextSize();
+                    case "key_gap":
+                        return settings.getKeyGap();
                     default:
                         android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
                         return prefs.getInt(key, defaultValue);
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error getting int setting", e);
-                return defaultValue;
-            }
+            } catch (Exception e) {}
+            return defaultValue;
         }
         
         @JavascriptInterface
-        public void applyTheme(String themeName) {
-            settings.applyTheme(themeName);
+        public void saveSetting(String key, String value) {
+            try {
+                android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
+                prefs.edit().putString(key, value).apply();
+                notifyKeyboard();
+            } catch (Exception e) {}
+        }
+        
+        @JavascriptInterface
+        public String getSetting(String key, String defaultValue) {
+            try {
+                android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
+                return prefs.getString(key, defaultValue);
+            } catch (Exception e) {}
+            return defaultValue;
+        }
+        
+        @JavascriptInterface
+        public void setBackgroundColor(String color) {
+            settings.setColorBackground(color);
+            // Also update key colors based on background
+            if (color.equals("#000000") || color.startsWith("#0") || color.startsWith("#1")) {
+                // Dark background
+                settings.setColorKey("#1a1a1a");
+                settings.setColorKeySpecial("#0d0d0d");
+                settings.setColorKeySpace("#1a1a1a");
+            } else if (color.equals("#f5f5f5") || color.equals("#ffffff") || color.startsWith("#f") || color.startsWith("#e")) {
+                // Light background
+                settings.setColorKey("#ffffff");
+                settings.setColorKeySpecial("#e0e0e0");
+                settings.setColorKeySpace("#ffffff");
+            } else {
+                // Custom - slightly lighter keys
+                settings.setColorKey(lightenColor(color, 0.1f));
+                settings.setColorKeySpecial(darkenColor(color, 0.1f));
+                settings.setColorKeySpace(lightenColor(color, 0.1f));
+            }
             notifyKeyboard();
         }
         
         @JavascriptInterface
-        public String getCurrentTheme() {
-            return settings.getCurrentTheme();
-        }
-        
-        @JavascriptInterface
-        public void setColorAccent(String color) {
-            settings.setColorKeyEnter(color);
+        public void setTextColor(String color) {
+            settings.setColorText(color);
             notifyKeyboard();
         }
         
@@ -223,9 +234,7 @@ public class MainActivity extends BridgeActivity {
                 intent.putExtra("mode", "tools");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            } catch (Exception e) {
-                Log.e(TAG, "Error showing floating window", e);
-            }
+            } catch (Exception e) {}
         }
         
         @JavascriptInterface
@@ -234,23 +243,35 @@ public class MainActivity extends BridgeActivity {
             notifyKeyboard();
         }
         
-        @JavascriptInterface
-        public void showToast(String message) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, message, Toast.LENGTH_SHORT).show();
-                }
-            });
-        }
-        
         private void notifyKeyboard() {
             try {
                 Intent intent = new Intent(KeyboardSettings.ACTION_SETTINGS_CHANGED);
                 intent.setPackage(getPackageName());
                 sendBroadcast(intent);
+            } catch (Exception e) {}
+        }
+        
+        private String lightenColor(String color, float factor) {
+            try {
+                int c = android.graphics.Color.parseColor(color);
+                int r = Math.min(255, (int)(android.graphics.Color.red(c) + 255 * factor));
+                int g = Math.min(255, (int)(android.graphics.Color.green(c) + 255 * factor));
+                int b = Math.min(255, (int)(android.graphics.Color.blue(c) + 255 * factor));
+                return String.format("#%02x%02x%02x", r, g, b);
             } catch (Exception e) {
-                Log.e(TAG, "Error sending broadcast", e);
+                return color;
+            }
+        }
+        
+        private String darkenColor(String color, float factor) {
+            try {
+                int c = android.graphics.Color.parseColor(color);
+                int r = Math.max(0, (int)(android.graphics.Color.red(c) - 255 * factor));
+                int g = Math.max(0, (int)(android.graphics.Color.green(c) - 255 * factor));
+                int b = Math.max(0, (int)(android.graphics.Color.blue(c) - 255 * factor));
+                return String.format("#%02x%02x%02x", r, g, b);
+            } catch (Exception e) {
+                return color;
             }
         }
     }
