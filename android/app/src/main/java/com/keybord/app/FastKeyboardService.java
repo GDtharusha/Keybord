@@ -22,8 +22,10 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowInsets;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -73,6 +75,7 @@ public class FastKeyboardService extends InputMethodService {
         {"ABC", "🌐", ",", "SPACE", ".", "✨", "↵"}
     };
     
+    private FrameLayout rootContainer;
     private LinearLayout keyboardView;
     private Handler handler;
     private Vibrator vibrator;
@@ -85,6 +88,8 @@ public class FastKeyboardService extends InputMethodService {
     private boolean isSymbols = false;
     private boolean isRepeating = false;
     private Runnable repeatRunnable;
+    
+    private int navigationBarHeight = 0;
     
     private BroadcastReceiver settingsReceiver = new BroadcastReceiver() {
         @Override
@@ -130,6 +135,8 @@ public class FastKeyboardService extends InputMethodService {
         } catch (Exception e) {
             Log.e(TAG, "Error creating settings", e);
         }
+        
+        calculateNavigationBarHeight();
         
         try {
             vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
@@ -178,14 +185,86 @@ public class FastKeyboardService extends InputMethodService {
         super.onDestroy();
     }
     
+    private void calculateNavigationBarHeight() {
+        navigationBarHeight = 0;
+        
+        try {
+            Resources resources = getResources();
+            int resourceId = resources.getIdentifier("navigation_bar_height", "dimen", "android");
+            if (resourceId > 0) {
+                navigationBarHeight = resources.getDimensionPixelSize(resourceId);
+                Log.d(TAG, "Navigation bar height from resources: " + navigationBarHeight);
+            }
+            
+            if (navigationBarHeight == 0) {
+                navigationBarHeight = dp(48);
+            }
+            
+            boolean hasNavBar = true;
+            int navBarOverrideId = resources.getIdentifier("config_showNavigationBar", "bool", "android");
+            if (navBarOverrideId > 0) {
+                hasNavBar = resources.getBoolean(navBarOverrideId);
+            }
+            
+            if (!hasNavBar) {
+                int navModeId = resources.getIdentifier("config_navBarInteractionMode", "integer", "android");
+                if (navModeId > 0) {
+                    int navMode = resources.getInteger(navModeId);
+                    if (navMode == 2) {
+                        navigationBarHeight = dp(20);
+                    }
+                }
+            }
+            
+            Log.d(TAG, "Final navigation bar height: " + navigationBarHeight);
+            
+        } catch (Exception e) {
+            Log.e(TAG, "Error calculating nav bar height", e);
+            navigationBarHeight = dp(48);
+        }
+    }
+    
     @Override
     public View onCreateInputView() {
         Log.d(TAG, "onCreateInputView");
         
         try {
             loadSettings();
+            calculateNavigationBarHeight();
+            
+            rootContainer = new FrameLayout(this);
+            
+            try {
+                rootContainer.setBackgroundColor(Color.parseColor(colorBackground));
+            } catch (Exception e) {
+                rootContainer.setBackgroundColor(Color.parseColor("#1a1a2e"));
+            }
+            
             keyboardView = createKeyboardLayout();
-            return keyboardView;
+            
+            FrameLayout.LayoutParams keyboardParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            );
+            keyboardParams.gravity = Gravity.BOTTOM;
+            
+            rootContainer.addView(keyboardView, keyboardParams);
+            
+            int emojiRowHeight = showEmojiRow ? dp(40) : 0;
+            int mainHeight = dp(keyboardHeight);
+            int totalHeight = emojiRowHeight + mainHeight + navigationBarHeight;
+            
+            rootContainer.setLayoutParams(new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                totalHeight
+            ));
+            
+            rootContainer.setPadding(0, 0, 0, navigationBarHeight);
+            
+            Log.d(TAG, "Keyboard created - height: " + mainHeight + ", navBar: " + navigationBarHeight + ", total: " + totalHeight);
+            
+            return rootContainer;
+            
         } catch (Exception e) {
             Log.e(TAG, "Error creating input view", e);
             LinearLayout errorView = new LinearLayout(this);
@@ -211,9 +290,25 @@ public class FastKeyboardService extends InputMethodService {
             }
             
             loadSettings();
+            calculateNavigationBarHeight();
             rebuildKeyboard();
         } catch (Exception e) {
             Log.e(TAG, "Error in onStartInputView", e);
+        }
+    }
+    
+    @Override
+    public void onComputeInsets(Insets outInsets) {
+        super.onComputeInsets(outInsets);
+        
+        if (rootContainer != null) {
+            int emojiRowHeight = showEmojiRow ? dp(40) : 0;
+            int mainHeight = dp(keyboardHeight);
+            int totalHeight = emojiRowHeight + mainHeight + navigationBarHeight;
+            
+            outInsets.contentTopInsets = outInsets.visibleTopInsets;
+            outInsets.touchableInsets = Insets.TOUCHABLE_INSETS_FRAME;
+            outInsets.touchableRegion.setEmpty();
         }
     }
     
@@ -261,8 +356,8 @@ public class FastKeyboardService extends InputMethodService {
         int mainHeight = dp(keyboardHeight);
         int totalHeight = emojiRowHeight + mainHeight;
         
-        keyboard.setLayoutParams(new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
+        keyboard.setLayoutParams(new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
             totalHeight
         ));
         
@@ -587,34 +682,48 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     private void rebuildKeyboard() {
-        if (keyboardView != null) {
-            keyboardView.removeAllViews();
-            
-            try {
-                keyboardView.setBackgroundColor(Color.parseColor(colorBackground));
-            } catch (Exception e) {
-                keyboardView.setBackgroundColor(Color.parseColor("#1a1a2e"));
-            }
-            
-            int emojiRowHeight = showEmojiRow ? dp(40) : 0;
-            int mainHeight = dp(keyboardHeight);
-            int totalHeight = emojiRowHeight + mainHeight;
-            
-            ViewGroup.LayoutParams params = keyboardView.getLayoutParams();
-            if (params != null) {
-                params.height = totalHeight;
-                keyboardView.setLayoutParams(params);
-            }
-            
-            if (showEmojiRow) {
-                keyboardView.addView(createEmojiRow());
-            }
-            
-            String[][] layout = getActiveLayout();
-            for (int i = 0; i < layout.length; i++) {
-                keyboardView.addView(createRow(layout[i], i));
-            }
+        if (keyboardView == null) return;
+        if (rootContainer == null) return;
+        
+        keyboardView.removeAllViews();
+        
+        try {
+            keyboardView.setBackgroundColor(Color.parseColor(colorBackground));
+            rootContainer.setBackgroundColor(Color.parseColor(colorBackground));
+        } catch (Exception e) {
+            keyboardView.setBackgroundColor(Color.parseColor("#1a1a2e"));
+            rootContainer.setBackgroundColor(Color.parseColor("#1a1a2e"));
         }
+        
+        int emojiRowHeight = showEmojiRow ? dp(40) : 0;
+        int mainHeight = dp(keyboardHeight);
+        int keyboardTotalHeight = emojiRowHeight + mainHeight;
+        
+        ViewGroup.LayoutParams keyboardParams = keyboardView.getLayoutParams();
+        if (keyboardParams != null) {
+            keyboardParams.height = keyboardTotalHeight;
+            keyboardView.setLayoutParams(keyboardParams);
+        }
+        
+        int containerTotalHeight = keyboardTotalHeight + navigationBarHeight;
+        ViewGroup.LayoutParams containerParams = rootContainer.getLayoutParams();
+        if (containerParams != null) {
+            containerParams.height = containerTotalHeight;
+            rootContainer.setLayoutParams(containerParams);
+        }
+        
+        rootContainer.setPadding(0, 0, 0, navigationBarHeight);
+        
+        if (showEmojiRow) {
+            keyboardView.addView(createEmojiRow());
+        }
+        
+        String[][] layout = getActiveLayout();
+        for (int i = 0; i < layout.length; i++) {
+            keyboardView.addView(createRow(layout[i], i));
+        }
+        
+        Log.d(TAG, "Keyboard rebuilt - keyboard: " + keyboardTotalHeight + ", container: " + containerTotalHeight + ", navBar: " + navigationBarHeight);
     }
     
     private void openPopup(String mode) {
