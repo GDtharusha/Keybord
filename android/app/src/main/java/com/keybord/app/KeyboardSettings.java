@@ -27,6 +27,7 @@ public class KeyboardSettings {
     
     public static final boolean DEF_VIBRATION_ENABLED = true;
     public static final int DEF_VIBRATION_STRENGTH = 5;
+    public static final boolean DEF_SOUND_ENABLED = false;
     public static final boolean DEF_SHOW_EMOJI_ROW = false;
     public static final int DEF_LONG_PRESS_DELAY = 350;
     
@@ -74,6 +75,10 @@ public class KeyboardSettings {
     public int getVibrationStrength() { return prefs.getInt("vibration_strength", DEF_VIBRATION_STRENGTH); }
     public void setVibrationStrength(int strength) { editor.putInt("vibration_strength", strength).apply(); }
     
+    // Sound (for PopupActivity compatibility)
+    public boolean isSoundEnabled() { return prefs.getBoolean("sound_enabled", DEF_SOUND_ENABLED); }
+    public void setSoundEnabled(boolean enabled) { editor.putBoolean("sound_enabled", enabled).apply(); }
+    
     // Features
     public boolean isShowEmojiRow() { return prefs.getBoolean("show_emoji_row", DEF_SHOW_EMOJI_ROW); }
     public void setShowEmojiRow(boolean show) { editor.putBoolean("show_emoji_row", show).apply(); }
@@ -84,6 +89,84 @@ public class KeyboardSettings {
     // Theme
     public String getTheme() { return prefs.getString("theme", "black"); }
     public void setTheme(String theme) { editor.putString("theme", theme).apply(); }
+    
+    // For PopupActivity compatibility
+    public String getCurrentTheme() { return getTheme(); }
+    public void setCurrentTheme(String theme) { setTheme(theme); }
+    
+    // Apply theme preset
+    public void applyTheme(String themeName) {
+        switch (themeName) {
+            case "black":
+                setColorBackground("#000000");
+                setColorKey("#1a1a1a");
+                setColorKeySpecial("#0d0d0d");
+                setColorKeyEnter("#2563eb");
+                setColorKeySpace("#1a1a1a");
+                setColorText("#ffffff");
+                break;
+            case "white":
+                setColorBackground("#f5f5f5");
+                setColorKey("#ffffff");
+                setColorKeySpecial("#e0e0e0");
+                setColorKeyEnter("#2563eb");
+                setColorKeySpace("#ffffff");
+                setColorText("#000000");
+                break;
+            case "dark":
+                setColorBackground("#1a1a2e");
+                setColorKey("#3d3d5c");
+                setColorKeySpecial("#252540");
+                setColorKeyEnter("#2563eb");
+                setColorKeySpace("#303050");
+                setColorText("#ffffff");
+                break;
+            case "light":
+                setColorBackground("#e8e8f0");
+                setColorKey("#ffffff");
+                setColorKeySpecial("#d0d0d8");
+                setColorKeyEnter("#2563eb");
+                setColorKeySpace("#ffffff");
+                setColorText("#1a1a2e");
+                break;
+            case "blue":
+                setColorBackground("#0f172a");
+                setColorKey("#1e3a5f");
+                setColorKeySpecial("#0c2340");
+                setColorKeyEnter("#3b82f6");
+                setColorKeySpace("#1e3a5f");
+                setColorText("#ffffff");
+                break;
+            case "green":
+                setColorBackground("#0f1f0f");
+                setColorKey("#1a3d1a");
+                setColorKeySpecial("#0d2d0d");
+                setColorKeyEnter("#10b981");
+                setColorKeySpace("#1a3d1a");
+                setColorText("#ffffff");
+                break;
+            case "purple":
+                setColorBackground("#1a0a2e");
+                setColorKey("#3d2d5c");
+                setColorKeySpecial("#251540");
+                setColorKeyEnter("#8b5cf6");
+                setColorKeySpace("#3d2d5c");
+                setColorText("#ffffff");
+                break;
+            case "red":
+                setColorBackground("#1f0f0f");
+                setColorKey("#3d1a1a");
+                setColorKeySpecial("#2d0d0d");
+                setColorKeyEnter("#ef4444");
+                setColorKeySpace("#3d1a1a");
+                setColorText("#ffffff");
+                break;
+            default:
+                // Custom theme - don't change colors
+                break;
+        }
+        setTheme(themeName);
+    }
     
     public String getQuickEmojis() { return prefs.getString("quick_emojis", "😀,😂,❤️,👍,🔥,✨,🎉,💯"); }
     public void setQuickEmojis(String emojis) { editor.putString("quick_emojis", emojis).apply(); }
