@@ -22,6 +22,7 @@ public class MainActivity extends BridgeActivity {
     private static final String TAG = "MainActivity";
     private KeyboardSettings settings;
     private Handler handler;
+    private boolean bridgeAdded = false;
     
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -30,44 +31,67 @@ public class MainActivity extends BridgeActivity {
         settings = new KeyboardSettings(this);
         handler = new Handler(Looper.getMainLooper());
         
-        // Add bridge with multiple retries
-        for (int delay : new int[]{0, 50, 100, 200, 300, 500, 800, 1000, 1500, 2000}) {
-            handler.postDelayed(this::addBridgeAndNotify, delay);
-        }
+        // Add JavaScript interface with multiple attempts
+        addJavaScriptBridge();
     }
     
-    private void addBridgeAndNotify() {
-        try {
-            if (getBridge() != null && getBridge().getWebView() != null) {
-                WebView webView = getBridge().getWebView();
-                
-                // Add interface (safe to call multiple times)
-                webView.removeJavascriptInterface("NativeSettings");
-                webView.addJavascriptInterface(new NativeSettingsBridge(), "NativeSettings");
-                
-                // Notify JavaScript
-                webView.evaluateJavascript(
-                    "window.nativeBridgeReady = true; " +
-                    "if(typeof onNativeBridgeReady === 'function') { onNativeBridgeReady(); }",
-                    null
-                );
+    private void addJavaScriptBridge() {
+        // Try to add bridge immediately and also with delays
+        tryAddBridge(0);
+        tryAddBridge(100);
+        tryAddBridge(300);
+        tryAddBridge(500);
+        tryAddBridge(1000);
+    }
+    
+    private void tryAddBridge(int delayMs) {
+        handler.postDelayed(() -> {
+            try {
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    WebView webView = getBridge().getWebView();
+                    
+                    if (!bridgeAdded) {
+                        webView.addJavascriptInterface(new NativeSettingsBridge(), "NativeSettings");
+                        bridgeAdded = true;
+                        Log.d(TAG, "NativeSettings bridge added at " + delayMs + "ms");
+                    }
+                    
+                    // Notify JavaScript that bridge is ready
+                    webView.post(() -> {
+                        try {
+                            webView.evaluateJavascript(
+                                "if(typeof onNativeBridgeReady === 'function') { onNativeBridgeReady(); } " +
+                                "else { window.nativeBridgeReady = true; }",
+                                null
+                            );
+                            Log.d(TAG, "Bridge ready notification sent");
+                        } catch (Exception e) {
+                            Log.e(TAG, "Error notifying bridge ready", e);
+                        }
+                    });
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error adding bridge at " + delayMs + "ms", e);
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Bridge add error", e);
-        }
+        }, delayMs);
     }
     
     @Override
     public void onResume() {
         super.onResume();
-        handler.postDelayed(this::addBridgeAndNotify, 100);
-        handler.postDelayed(this::addBridgeAndNotify, 300);
-    }
-    
-    @Override
-    public void onStart() {
-        super.onStart();
-        handler.postDelayed(this::addBridgeAndNotify, 100);
+        // Re-notify when app comes back to foreground
+        handler.postDelayed(() -> {
+            try {
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().evaluateJavascript(
+                        "if(typeof onAppResume === 'function') { onAppResume(); }",
+                        null
+                    );
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error on resume", e);
+            }
+        }, 300);
     }
     
     // ════════════════════════════════════════════════════════════════════════════
@@ -75,6 +99,10 @@ public class MainActivity extends BridgeActivity {
     // ════════════════════════════════════════════════════════════════════════════
     
     public class NativeSettingsBridge {
+        
+        // ──────────────────────────────────────────────────────────────────────
+        // BRIDGE STATUS CHECK
+        // ──────────────────────────────────────────────────────────────────────
         
         @JavascriptInterface
         public boolean isAvailable() {
@@ -86,6 +114,10 @@ public class MainActivity extends BridgeActivity {
             return "pong";
         }
         
+        // ──────────────────────────────────────────────────────────────────────
+        // KEYBOARD STATUS METHODS
+        // ──────────────────────────────────────────────────────────────────────
+        
         @JavascriptInterface
         public boolean isKeyboardEnabled() {
             try {
@@ -96,7 +128,9 @@ public class MainActivity extends BridgeActivity {
                         return true;
                     }
                 }
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking keyboard enabled", e);
+            }
             return false;
         }
         
@@ -108,7 +142,9 @@ public class MainActivity extends BridgeActivity {
                     Settings.Secure.DEFAULT_INPUT_METHOD
                 );
                 return currentIME != null && currentIME.contains(getPackageName());
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error checking keyboard active", e);
+            }
             return false;
         }
         
@@ -121,13 +157,20 @@ public class MainActivity extends BridgeActivity {
             }
         }
         
+        // ──────────────────────────────────────────────────────────────────────
+        // KEYBOARD SETUP METHODS
+        // ──────────────────────────────────────────────────────────────────────
+        
         @JavascriptInterface
         public void openKeyboardSettings() {
             try {
                 Intent intent = new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS);
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error opening keyboard settings", e);
+                showToastSafe("Cannot open settings");
+            }
         }
         
         @JavascriptInterface
@@ -135,7 +178,10 @@ public class MainActivity extends BridgeActivity {
             try {
                 InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
                 imm.showInputMethodPicker();
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error showing keyboard picker", e);
+                showToastSafe("Cannot show keyboard picker");
+            }
         }
         
         @JavascriptInterface
@@ -147,8 +193,14 @@ public class MainActivity extends BridgeActivity {
                 );
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error requesting overlay permission", e);
+            }
         }
+        
+        // ──────────────────────────────────────────────────────────────────────
+        // SETTINGS SAVE/LOAD METHODS
+        // ──────────────────────────────────────────────────────────────────────
         
         @JavascriptInterface
         public void saveSetting(String key, String value) {
@@ -156,7 +208,9 @@ public class MainActivity extends BridgeActivity {
                 android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
                 prefs.edit().putString(key, value).apply();
                 notifyKeyboard();
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving setting", e);
+            }
         }
         
         @JavascriptInterface
@@ -188,7 +242,9 @@ public class MainActivity extends BridgeActivity {
                         prefs.edit().putBoolean(key, value).apply();
                 }
                 notifyKeyboard();
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving bool setting", e);
+            }
         }
         
         @JavascriptInterface
@@ -232,7 +288,9 @@ public class MainActivity extends BridgeActivity {
                         prefs.edit().putInt(key, value).apply();
                 }
                 notifyKeyboard();
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error saving int setting", e);
+            }
         }
         
         @JavascriptInterface
@@ -255,6 +313,10 @@ public class MainActivity extends BridgeActivity {
                 return defaultValue;
             }
         }
+        
+        // ──────────────────────────────────────────────────────────────────────
+        // THEME METHODS
+        // ──────────────────────────────────────────────────────────────────────
         
         @JavascriptInterface
         public void applyTheme(String themeName) {
@@ -289,6 +351,10 @@ public class MainActivity extends BridgeActivity {
             return settings.getColorKeyEnter();
         }
         
+        // ──────────────────────────────────────────────────────────────────────
+        // UTILITY METHODS
+        // ──────────────────────────────────────────────────────────────────────
+        
         @JavascriptInterface
         public void showFloatingWindow() {
             try {
@@ -296,7 +362,9 @@ public class MainActivity extends BridgeActivity {
                 intent.putExtra("mode", "tools");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error showing floating window", e);
+            }
         }
         
         @JavascriptInterface
@@ -316,12 +384,18 @@ public class MainActivity extends BridgeActivity {
             Log.d(TAG, "JS: " + message);
         }
         
+        // ──────────────────────────────────────────────────────────────────────
+        // NOTIFY KEYBOARD
+        // ──────────────────────────────────────────────────────────────────────
+        
         private void notifyKeyboard() {
             try {
                 Intent intent = new Intent(KeyboardSettings.ACTION_SETTINGS_CHANGED);
                 intent.setPackage(getPackageName());
                 sendBroadcast(intent);
-            } catch (Exception e) {}
+            } catch (Exception e) {
+                Log.e(TAG, "Error sending broadcast", e);
+            }
         }
     }
     

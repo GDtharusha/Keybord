@@ -710,38 +710,97 @@
             setTimeout(() => t.classList.remove('show'), 2000);
         }
 
-        // Start
-        document.addEventListener('DOMContentLoaded', function() {
-            // Try immediate init
-            if (checkBridge()) {
-                initApp();
-            } else if (window.nativeBridgeReady) {
-                initApp();
-            } else {
-                // Retry with increasing delays
-                [50, 100, 200, 300, 500, 800, 1000, 1500, 2000, 3000].forEach(d => {
-                    setTimeout(() => {
-                        if (!ready) initApp();
-                    }, d);
-                });
 
-                // Fallback timeout
-                setTimeout(() => {
-                    if (!ready) {
-                        document.getElementById('loadingText').textContent = 'Tap to retry...';
-                        document.getElementById('loading').onclick = () => location.reload();
+        // ═══════════════════════════════════════════════════════════════════════════
+        // INITIALIZATION - AUTO RELOAD FIX
+        // ═══════════════════════════════════════════════════════════════════════════
+
+        let bridgeReady = false;
+        let initAttempts = 0;
+
+        function tryInit() {
+            initAttempts++;
+
+            // Check if bridge is available
+            if (typeof NativeSettings !== 'undefined') {
+                try {
+                    if (NativeSettings.isAvailable && NativeSettings.isAvailable()) {
+                        if (!bridgeReady) {
+                            bridgeReady = true;
+                            console.log('Bridge ready after ' + initAttempts + ' attempts');
+
+                            // First time - reload page to ensure everything is fresh
+                            if (!sessionStorage.getItem('kb_initialized')) {
+                                sessionStorage.setItem('kb_initialized', 'true');
+                                console.log('First load - reloading page...');
+                                location.reload();
+                                return;
+                            }
+
+                            // Load settings
+                            isNativeAvailable = true;
+                            loadSettings();
+                            checkStatus();
+                            updateBridgeStatus();
+                            return;
+                        }
                     }
-                }, 5000);
+                } catch (e) {
+                    console.log('Bridge check error:', e);
+                }
             }
+
+            // Keep trying for 5 seconds
+            if (initAttempts < 50) {
+                setTimeout(tryInit, 100);
+            } else {
+                console.log('Bridge not available after max attempts');
+                // Still show the page
+                isNativeAvailable = false;
+                checkStatus();
+                updateBridgeStatus();
+            }
+        }
+
+        // Native bridge callback
+        window.onNativeBridgeReady = function() {
+            console.log('Native bridge ready callback');
+            tryInit();
+        };
+
+        window.onAppResume = function() {
+            console.log('App resumed');
+            if (bridgeReady) {
+                checkStatus();
+            }
+        };
+
+        // Start on DOM ready
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('DOM ready, starting init...');
+
+            // Clear init flag on fresh app open (not reload)
+            if (!document.referrer && performance.navigation.type !== 1) {
+                sessionStorage.removeItem('kb_initialized');
+            }
+
+            // Start trying
+            tryInit();
         });
 
         // Recheck on focus
-        window.addEventListener('focus', () => {
-            if (ready) checkStatus();
+        window.addEventListener('focus', function() {
+            if (bridgeReady) {
+                setTimeout(checkStatus, 300);
+            }
         });
-        setInterval(() => {
-            if (ready) checkStatus();
-        }, 3000);
+
+        // Periodic status check
+        setInterval(function() {
+            if (bridgeReady && isNativeAvailable) {
+                checkStatus();
+            }
+        }, 5000);
     </script>
 </body>
 
