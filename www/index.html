@@ -44,7 +44,6 @@
             color: rgba(255, 255, 255, 0.5);
             font-size: 14px;
         }
-        /* Connection Status Banner */
         
         .connection-banner {
             background: rgba(239, 68, 68, 0.2);
@@ -435,16 +434,14 @@
         <p>High-Performance Custom Keyboard</p>
     </div>
 
-    <!-- Connection Banner -->
     <div class="connection-banner" id="connectionBanner">
         <span class="banner-text" id="bannerText">
-            <span id="bannerIcon">⚠️</span>
+            <span id="bannerIcon">⏳</span>
         <span id="bannerMessage">Connecting...</span>
         </span>
-        <button class="banner-btn" id="bannerBtn" onclick="activateBridge()">Activate</button>
+        <button class="banner-btn" id="bannerBtn" onclick="forceReload()">Reload</button>
     </div>
 
-    <!-- Status Bar -->
     <div class="status-bar">
         <div class="status-item" onclick="openKeyboardSettings()">
             <div class="icon">⚙️</div>
@@ -463,7 +460,6 @@
         </div>
     </div>
 
-    <!-- Setup Card -->
     <div class="card">
         <h2>🚀 Quick Setup</h2>
         <button class="btn btn-primary" onclick="openKeyboardSettings()">
@@ -474,7 +470,6 @@
         </button>
     </div>
 
-    <!-- Theme Card -->
     <div class="card">
         <h2>🎨 Theme</h2>
         <span class="section-label">Select Theme</span>
@@ -510,7 +505,6 @@
         </div>
     </div>
 
-    <!-- Settings Card -->
     <div class="card">
         <h2>⚙️ Preferences</h2>
 
@@ -563,7 +557,6 @@
         </div>
     </div>
 
-    <!-- Tools Card -->
     <div class="card">
         <h2>🛠️ Tools</h2>
         <button class="btn btn-accent" onclick="showFloatingWindow()">
@@ -577,7 +570,6 @@
         </button>
     </div>
 
-    <!-- Test Card -->
     <div class="card">
         <h2>🧪 Test Keyboard</h2>
         <div class="test-section">
@@ -595,89 +587,84 @@
     <div class="toast" id="toast"></div>
 
     <script>
-        // ═══════════════════════════════════════════════════════════════════════════
-        // BRIDGE CONNECTION - Same approach as PopupActivity (100% Working)
-        // ═══════════════════════════════════════════════════════════════════════════
+        var bridgeReady = false;
+        var connectionCheckInterval = null;
+        var checkCount = 0;
 
-        let bridgeReady = false;
-        let initAttempts = 0;
-        const MAX_INIT_ATTEMPTS = 20;
+        function getNativeBridge() {
+            if (typeof NativeSettings !== 'undefined' && NativeSettings !== null) {
+                return NativeSettings;
+            }
+            return null;
+        }
 
-        // Check if NativeSettings bridge exists and works
-        function checkBridge() {
-            try {
-                if (typeof NativeSettings !== 'undefined' && NativeSettings !== null) {
-                    // Test if it actually works
-                    NativeSettings.log('Bridge test');
+        function isBridgeAvailable() {
+            var bridge = getNativeBridge();
+            if (bridge) {
+                try {
+                    bridge.log('Bridge check');
                     return true;
+                } catch (e) {
+                    return false;
                 }
-            } catch (e) {
-                console.log('Bridge check failed:', e);
             }
             return false;
         }
 
-        // Update connection banner UI
-        function updateBannerUI(connected) {
-            const banner = document.getElementById('connectionBanner');
-            const icon = document.getElementById('bannerIcon');
-            const message = document.getElementById('bannerMessage');
-            const btn = document.getElementById('bannerBtn');
-            const status = document.getElementById('bridgeStatus');
+        function updateConnectionUI(connected) {
+            var banner = document.getElementById('connectionBanner');
+            var icon = document.getElementById('bannerIcon');
+            var message = document.getElementById('bannerMessage');
+            var btn = document.getElementById('bannerBtn');
+            var status = document.getElementById('bridgeStatus');
 
             if (connected) {
                 banner.classList.add('connected');
                 icon.textContent = '✓';
                 message.textContent = 'Connected to keyboard service';
                 btn.textContent = 'Refresh';
-                btn.onclick = function() {
-                    location.reload();
-                };
+                btn.onclick = forceReload;
                 status.textContent = 'Native Bridge: Connected ✓';
+                bridgeReady = true;
             } else {
                 banner.classList.remove('connected');
-                icon.textContent = '⚠️';
-                message.textContent = 'Not connected - tap Activate';
-                btn.textContent = 'Activate';
-                btn.onclick = activateBridge;
-                status.textContent = 'Native Bridge: Waiting...';
+                icon.textContent = '⏳';
+                message.textContent = 'Connecting... (' + checkCount + ')';
+                btn.textContent = 'Reload';
+                btn.onclick = forceReload;
+                status.textContent = 'Native Bridge: Connecting...';
+                bridgeReady = false;
             }
         }
 
-        // Activate bridge - AUTO RETRY mechanism
-        function activateBridge() {
-            console.log('Activating bridge...');
-            initAttempts = 0;
-            tryConnect();
+        function startConnectionCheck() {
+            checkCount = 0;
+
+            connectionCheckInterval = setInterval(function() {
+                checkCount++;
+
+                if (isBridgeAvailable()) {
+                    clearInterval(connectionCheckInterval);
+                    connectionCheckInterval = null;
+                    updateConnectionUI(true);
+                    loadAllSettings();
+                    checkAllStatus();
+                    showToast('✓ Connected!');
+                } else if (checkCount >= 50) {
+                    clearInterval(connectionCheckInterval);
+                    connectionCheckInterval = null;
+                    updateConnectionUI(false);
+                    document.getElementById('bannerMessage').textContent = 'Connection failed - tap Reload';
+                    loadFromLocalStorage();
+                } else {
+                    updateConnectionUI(false);
+                }
+            }, 100);
         }
 
-        function tryConnect() {
-            initAttempts++;
-            console.log('Connection attempt ' + initAttempts + '/' + MAX_INIT_ATTEMPTS);
-
-            if (checkBridge()) {
-                console.log('Bridge connected on attempt ' + initAttempts);
-                bridgeReady = true;
-                updateBannerUI(true);
-                loadAllSettings();
-                checkAllStatus();
-                showToast('✓ Connected successfully!');
-                return;
-            }
-
-            if (initAttempts < MAX_INIT_ATTEMPTS) {
-                setTimeout(tryConnect, 300);
-            } else {
-                console.log('Max attempts reached');
-                updateBannerUI(false);
-                loadFromLocalStorage();
-                showToast('⚠️ Using offline mode');
-            }
+        function forceReload() {
+            location.reload();
         }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // STATUS CHECKING
-        // ═══════════════════════════════════════════════════════════════════════════
 
         function checkAllStatus() {
             if (!bridgeReady) {
@@ -686,21 +673,24 @@
             }
 
             try {
-                // Keyboard enabled?
-                const isEnabled = NativeSettings.isKeyboardEnabled();
-                const enabledEl = document.getElementById('statusEnabled');
+                var bridge = getNativeBridge();
+                if (!bridge) {
+                    setStatusOffline();
+                    return;
+                }
+
+                var isEnabled = bridge.isKeyboardEnabled();
+                var enabledEl = document.getElementById('statusEnabled');
                 enabledEl.textContent = isEnabled ? 'Enabled ✓' : 'Disabled';
                 enabledEl.className = 'value ' + (isEnabled ? 'success' : 'error');
 
-                // Keyboard active?
-                const isActive = NativeSettings.isKeyboardActive();
-                const activeEl = document.getElementById('statusActive');
+                var isActive = bridge.isKeyboardActive();
+                var activeEl = document.getElementById('statusActive');
                 activeEl.textContent = isActive ? 'Active ✓' : 'Not Active';
                 activeEl.className = 'value ' + (isActive ? 'success' : 'warning');
 
-                // Overlay permission?
-                const canOverlay = NativeSettings.canDrawOverlays();
-                const overlayEl = document.getElementById('statusOverlay');
+                var canOverlay = bridge.canDrawOverlays();
+                var overlayEl = document.getElementById('statusOverlay');
                 overlayEl.textContent = canOverlay ? 'Granted ✓' : 'Denied';
                 overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
             } catch (e) {
@@ -718,15 +708,11 @@
             document.getElementById('statusOverlay').className = 'value warning';
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // KEYBOARD SETUP FUNCTIONS
-        // ═══════════════════════════════════════════════════════════════════════════
-
         function openKeyboardSettings() {
             if (bridgeReady) {
                 try {
-                    NativeSettings.openKeyboardSettings();
-                    showToast('📱 Opening keyboard settings...');
+                    getNativeBridge().openKeyboardSettings();
+                    showToast('📱 Opening settings...');
                 } catch (e) {
                     showToast('❌ Error: ' + e.message);
                 }
@@ -738,48 +724,43 @@
         function showKeyboardPicker() {
             if (bridgeReady) {
                 try {
-                    NativeSettings.showKeyboardPicker();
-                    showToast('⌨️ Select KeyBord from the list');
+                    getNativeBridge().showKeyboardPicker();
+                    showToast('⌨️ Select KeyBord');
                 } catch (e) {
                     showToast('❌ Error: ' + e.message);
                 }
             } else {
-                showToast('⌨️ Tap text field, then switch keyboard');
+                showToast('⌨️ Switch keyboard manually');
             }
         }
 
         function requestOverlayPermission() {
             if (bridgeReady) {
                 try {
-                    NativeSettings.requestOverlayPermission();
-                    showToast('🔓 Opening permission settings...');
+                    getNativeBridge().requestOverlayPermission();
+                    showToast('🔓 Opening permissions...');
                 } catch (e) {
                     showToast('❌ Error: ' + e.message);
                 }
             } else {
-                showToast('🔓 Overlay permission (Android only)');
+                showToast('🔓 Not available offline');
             }
         }
 
         function showFloatingWindow() {
             if (bridgeReady) {
                 try {
-                    NativeSettings.showFloatingWindow();
+                    getNativeBridge().showFloatingWindow();
                     showToast('✨ Opening popup...');
                 } catch (e) {
                     showToast('❌ Error: ' + e.message);
                 }
             } else {
-                showToast('✨ Not available in offline mode');
+                showToast('✨ Not available offline');
             }
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // THEME FUNCTIONS
-        // ═══════════════════════════════════════════════════════════════════════════
-
         function selectTheme(themeName) {
-            // Update UI
             document.querySelectorAll('.theme-card').forEach(function(card) {
                 card.classList.remove('selected');
                 if (card.dataset.theme === themeName) {
@@ -787,19 +768,15 @@
                 }
             });
 
-            // Save
+            localStorage.setItem('theme', themeName);
+
             if (bridgeReady) {
                 try {
-                    NativeSettings.applyTheme(themeName);
-                    showToast('🎨 Theme: ' + themeName.charAt(0).toUpperCase() + themeName.slice(1));
-                } catch (e) {
-                    localStorage.setItem('theme', themeName);
-                    showToast('🎨 Theme saved locally');
-                }
-            } else {
-                localStorage.setItem('theme', themeName);
-                showToast('🎨 Theme: ' + themeName);
+                    getNativeBridge().applyTheme(themeName);
+                } catch (e) {}
             }
+
+            showToast('🎨 Theme: ' + themeName);
         }
 
         function selectAccentColor(element) {
@@ -810,22 +787,16 @@
             });
             element.classList.add('selected');
 
+            localStorage.setItem('accent_color', color);
+
             if (bridgeReady) {
                 try {
-                    NativeSettings.setColorAccent(color);
-                    showToast('🎨 Accent color updated!');
-                } catch (e) {
-                    localStorage.setItem('accent_color', color);
-                }
-            } else {
-                localStorage.setItem('accent_color', color);
-                showToast('🎨 Color: ' + color);
+                    getNativeBridge().setColorAccent(color);
+                } catch (e) {}
             }
-        }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // TOGGLE SETTINGS
-        // ═══════════════════════════════════════════════════════════════════════════
+            showToast('🎨 Color updated!');
+        }
 
         function toggleSetting(settingName) {
             var toggle = document.getElementById('toggle_' + settingName);
@@ -836,83 +807,59 @@
                 document.getElementById('vibrationSlider').style.display = isActive ? 'block' : 'none';
             }
 
+            localStorage.setItem(settingName, isActive ? 'true' : 'false');
+
             if (bridgeReady) {
                 try {
-                    NativeSettings.saveSettingBool(settingName, isActive);
-                    showToast((isActive ? '✓ ' : '✗ ') + settingName + (isActive ? ' enabled' : ' disabled'));
-                } catch (e) {
-                    localStorage.setItem(settingName, isActive);
-                }
-            } else {
-                localStorage.setItem(settingName, isActive);
-                showToast(settingName + ': ' + (isActive ? 'ON' : 'OFF'));
+                    getNativeBridge().saveSettingBool(settingName, isActive);
+                } catch (e) {}
             }
-        }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // SLIDER SETTINGS
-        // ═══════════════════════════════════════════════════════════════════════════
+            showToast(settingName + ': ' + (isActive ? 'ON' : 'OFF'));
+        }
 
         function updateVibrationStrength(value) {
             document.getElementById('vibrationValue').textContent = value + 'ms';
+            localStorage.setItem('vibration_strength', value);
             if (bridgeReady) {
                 try {
-                    NativeSettings.saveSettingInt('vibration_strength', parseInt(value));
+                    getNativeBridge().saveSettingInt('vibration_strength', parseInt(value));
                 } catch (e) {}
             }
-            localStorage.setItem('vibration_strength', value);
         }
 
         function updateKeyboardHeight(value) {
             document.getElementById('heightValue').textContent = value + 'dp';
+            localStorage.setItem('keyboard_height', value);
             if (bridgeReady) {
                 try {
-                    NativeSettings.saveSettingInt('keyboard_height', parseInt(value));
+                    getNativeBridge().saveSettingInt('keyboard_height', parseInt(value));
                 } catch (e) {}
             }
-            localStorage.setItem('keyboard_height', value);
         }
 
         function updateKeyRadius(value) {
             document.getElementById('radiusValue').textContent = value + 'dp';
+            localStorage.setItem('key_radius', value);
             if (bridgeReady) {
                 try {
-                    NativeSettings.saveSettingInt('key_radius', parseInt(value));
+                    getNativeBridge().saveSettingInt('key_radius', parseInt(value));
                 } catch (e) {}
             }
-            localStorage.setItem('key_radius', value);
         }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // RESET SETTINGS
-        // ═══════════════════════════════════════════════════════════════════════════
 
         function resetAllSettings() {
-            if (confirm('Reset all keyboard settings to defaults?')) {
+            if (confirm('Reset all settings to defaults?')) {
+                localStorage.clear();
                 if (bridgeReady) {
                     try {
-                        NativeSettings.resetAllSettings();
-                        showToast('🔄 Settings reset!');
-                        setTimeout(function() {
-                            location.reload();
-                        }, 500);
-                    } catch (e) {
-                        localStorage.clear();
-                        location.reload();
-                    }
-                } else {
-                    localStorage.clear();
-                    showToast('🔄 Settings cleared!');
-                    setTimeout(function() {
-                        location.reload();
-                    }, 500);
+                        getNativeBridge().resetAllSettings();
+                    } catch (e) {}
                 }
+                showToast('🔄 Settings reset!');
+                setTimeout(forceReload, 500);
             }
         }
-
-        // ═══════════════════════════════════════════════════════════════════════════
-        // LOAD SETTINGS
-        // ═══════════════════════════════════════════════════════════════════════════
 
         function loadAllSettings() {
             if (!bridgeReady) {
@@ -921,36 +868,32 @@
             }
 
             try {
-                // Theme
-                var currentTheme = NativeSettings.getCurrentTheme();
+                var bridge = getNativeBridge();
+
+                var currentTheme = bridge.getCurrentTheme();
                 document.querySelectorAll('.theme-card').forEach(function(card) {
                     card.classList.toggle('selected', card.dataset.theme === currentTheme);
                 });
 
-                // Toggles
-                var vibEnabled = NativeSettings.getSettingBool('vibration', true);
+                var vibEnabled = bridge.getSettingBool('vibration', true);
                 document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
                 document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
 
-                document.getElementById('toggle_sound').classList.toggle('active',
-                    NativeSettings.getSettingBool('sound', false));
-                document.getElementById('toggle_emoji_row').classList.toggle('active',
-                    NativeSettings.getSettingBool('emoji_row', false));
+                document.getElementById('toggle_sound').classList.toggle('active', bridge.getSettingBool('sound', false));
+                document.getElementById('toggle_emoji_row').classList.toggle('active', bridge.getSettingBool('emoji_row', false));
 
-                // Sliders
-                var vibStrength = NativeSettings.getSettingInt('vibration_strength', 5);
+                var vibStrength = bridge.getSettingInt('vibration_strength', 5);
                 document.getElementById('vibrationStrengthSlider').value = vibStrength;
                 document.getElementById('vibrationValue').textContent = vibStrength + 'ms';
 
-                var kbHeight = NativeSettings.getSettingInt('keyboard_height', 245);
+                var kbHeight = bridge.getSettingInt('keyboard_height', 245);
                 document.getElementById('heightSlider').value = kbHeight;
                 document.getElementById('heightValue').textContent = kbHeight + 'dp';
 
-                var keyRadius = NativeSettings.getSettingInt('key_radius', 8);
+                var keyRadius = bridge.getSettingInt('key_radius', 8);
                 document.getElementById('radiusSlider').value = keyRadius;
                 document.getElementById('radiusValue').textContent = keyRadius + 'dp';
 
-                console.log('Settings loaded from native');
             } catch (e) {
                 console.error('Error loading settings:', e);
                 loadFromLocalStorage();
@@ -962,22 +905,22 @@
             document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
             document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
 
-            document.getElementById('toggle_sound').classList.toggle('active',
-                localStorage.getItem('sound') === 'true');
-            document.getElementById('toggle_emoji_row').classList.toggle('active',
-                localStorage.getItem('emoji_row') === 'true');
+            document.getElementById('toggle_sound').classList.toggle('active', localStorage.getItem('sound') === 'true');
+            document.getElementById('toggle_emoji_row').classList.toggle('active', localStorage.getItem('emoji_row') === 'true');
 
             var savedTheme = localStorage.getItem('theme') || 'dark';
             document.querySelectorAll('.theme-card').forEach(function(card) {
                 card.classList.toggle('selected', card.dataset.theme === savedTheme);
             });
 
-            console.log('Settings loaded from localStorage');
-        }
+            var kbHeight = localStorage.getItem('keyboard_height') || '245';
+            document.getElementById('heightSlider').value = kbHeight;
+            document.getElementById('heightValue').textContent = kbHeight + 'dp';
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // UTILITIES
-        // ═══════════════════════════════════════════════════════════════════════════
+            var keyRadius = localStorage.getItem('key_radius') || '8';
+            document.getElementById('radiusSlider').value = keyRadius;
+            document.getElementById('radiusValue').textContent = keyRadius + 'dp';
+        }
 
         function showToast(message) {
             var toast = document.getElementById('toast');
@@ -988,29 +931,17 @@
             }, 2500);
         }
 
-        // ═══════════════════════════════════════════════════════════════════════════
-        // INITIALIZATION - AUTO CONNECT ON LOAD
-        // ═══════════════════════════════════════════════════════════════════════════
-
         document.addEventListener('DOMContentLoaded', function() {
             console.log('KeyBord App Starting...');
-
-            // Start connection immediately
-            activateBridge();
+            startConnectionCheck();
         });
 
-        // Re-check when window gets focus
         window.addEventListener('focus', function() {
-            setTimeout(function() {
-                if (bridgeReady) {
-                    checkAllStatus();
-                } else {
-                    activateBridge();
-                }
-            }, 300);
+            if (bridgeReady) {
+                checkAllStatus();
+            }
         });
 
-        // Periodic status check
         setInterval(function() {
             if (bridgeReady) {
                 checkAllStatus();
