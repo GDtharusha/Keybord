@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.inputmethodservice.InputMethodService;
@@ -27,7 +28,9 @@ import android.widget.LinearLayout;
 import android.widget.PopupWindow;
 import android.widget.TextView;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class FastKeyboardService extends InputMethodService {
@@ -75,14 +78,16 @@ public class FastKeyboardService extends InputMethodService {
         {"ABC", "🌐", ",", "SPACE", ".", "✨", "↵"}
     };
     
-    // Sinhala labels for each English key
+    // ═══════════════════════════════════════════════════════════════════
+    // SINHALA LABELS (shown on keys in Sinhala mode)
+    // ═══════════════════════════════════════════════════════════════════
     private static final Map<String, String> SINHALA_LABELS = new HashMap<>();
     static {
-        SINHALA_LABELS.put("q", "්");
+        SINHALA_LABELS.put("q", "ෘ");
         SINHALA_LABELS.put("w", "ව");
         SINHALA_LABELS.put("e", "එ");
         SINHALA_LABELS.put("r", "ර");
-        SINHALA_LABELS.put("t", "ත");
+        SINHALA_LABELS.put("t", "ට");
         SINHALA_LABELS.put("y", "ය");
         SINHALA_LABELS.put("u", "උ");
         SINHALA_LABELS.put("i", "ඉ");
@@ -90,7 +95,7 @@ public class FastKeyboardService extends InputMethodService {
         SINHALA_LABELS.put("p", "ප");
         SINHALA_LABELS.put("a", "අ");
         SINHALA_LABELS.put("s", "ස");
-        SINHALA_LABELS.put("d", "ද");
+        SINHALA_LABELS.put("d", "ඩ");
         SINHALA_LABELS.put("f", "ෆ");
         SINHALA_LABELS.put("g", "ග");
         SINHALA_LABELS.put("h", "හ");
@@ -98,7 +103,7 @@ public class FastKeyboardService extends InputMethodService {
         SINHALA_LABELS.put("k", "ක");
         SINHALA_LABELS.put("l", "ල");
         SINHALA_LABELS.put("z", "ඤ");
-        SINHALA_LABELS.put("x", "ඥ");
+        SINHALA_LABELS.put("x", "ං");
         SINHALA_LABELS.put("c", "ච");
         SINHALA_LABELS.put("v", "ව");
         SINHALA_LABELS.put("b", "බ");
@@ -106,78 +111,128 @@ public class FastKeyboardService extends InputMethodService {
         SINHALA_LABELS.put("m", "ම");
     }
     
-    // Singlish to Sinhala conversion map
-    private static final Map<String, String> SINGLISH_MAP = new HashMap<>();
+    // ═══════════════════════════════════════════════════════════════════
+    // SINGLISH TO SINHALA - CONSONANTS (හල් අකුරු)
+    // ═══════════════════════════════════════════════════════════════════
+    private static final Map<String, String> CONSONANTS = new HashMap<>();
     static {
-        // Single consonants
-        SINGLISH_MAP.put("k", "ක");
-        SINGLISH_MAP.put("g", "ග");
-        SINGLISH_MAP.put("c", "ච");
-        SINGLISH_MAP.put("j", "ජ");
-        SINGLISH_MAP.put("t", "ත");
-        SINGLISH_MAP.put("d", "ද");
-        SINGLISH_MAP.put("p", "ප");
-        SINGLISH_MAP.put("b", "බ");
-        SINGLISH_MAP.put("m", "ම");
-        SINGLISH_MAP.put("y", "ය");
-        SINGLISH_MAP.put("r", "ර");
-        SINGLISH_MAP.put("l", "ල");
-        SINGLISH_MAP.put("w", "ව");
-        SINGLISH_MAP.put("v", "ව");
-        SINGLISH_MAP.put("s", "ස");
-        SINGLISH_MAP.put("h", "හ");
-        SINGLISH_MAP.put("n", "න");
-        SINGLISH_MAP.put("f", "ෆ");
+        // 3-letter combinations (check first)
+        CONSONANTS.put("ndh", "ඳ්");
+        CONSONANTS.put("nth", "න්ථ්");
         
-        // Double consonants
-        SINGLISH_MAP.put("kh", "ඛ");
-        SINGLISH_MAP.put("gh", "ඝ");
-        SINGLISH_MAP.put("ch", "ඡ");
-        SINGLISH_MAP.put("jh", "ඣ");
-        SINGLISH_MAP.put("th", "ථ");
-        SINGLISH_MAP.put("dh", "ධ");
-        SINGLISH_MAP.put("ph", "ඵ");
-        SINGLISH_MAP.put("bh", "භ");
-        SINGLISH_MAP.put("sh", "ශ");
-        SINGLISH_MAP.put("ng", "ඞ");
-        SINGLISH_MAP.put("ny", "ඤ");
+        // 2-letter combinations
+        CONSONANTS.put("th", "ත්");
+        CONSONANTS.put("Th", "ථ්");
+        CONSONANTS.put("dh", "ද්");
+        CONSONANTS.put("Dh", "ධ්");
+        CONSONANTS.put("kh", "ඛ්");
+        CONSONANTS.put("gh", "ඝ්");
+        CONSONANTS.put("ng", "ඟ්");
+        CONSONANTS.put("ch", "ච්");
+        CONSONANTS.put("Ch", "ඡ්");
+        CONSONANTS.put("jh", "ඣ්");
+        CONSONANTS.put("nd", "ඳ්");
+        CONSONANTS.put("gn", "ඥ්");
+        CONSONANTS.put("kn", "ඤ්");
+        CONSONANTS.put("ph", "ඵ්");
+        CONSONANTS.put("bh", "භ්");
+        CONSONANTS.put("mb", "ඹ්");
+        CONSONANTS.put("sh", "ශ්");
+        CONSONANTS.put("Sh", "ෂ්");
         
-        // Vowels (standalone)
-        SINGLISH_MAP.put("a", "අ");
-        SINGLISH_MAP.put("aa", "ආ");
-        SINGLISH_MAP.put("i", "ඉ");
-        SINGLISH_MAP.put("ii", "ඊ");
-        SINGLISH_MAP.put("u", "උ");
-        SINGLISH_MAP.put("uu", "ඌ");
-        SINGLISH_MAP.put("e", "එ");
-        SINGLISH_MAP.put("ee", "ඒ");
-        SINGLISH_MAP.put("o", "ඔ");
-        SINGLISH_MAP.put("oo", "ඕ");
-        SINGLISH_MAP.put("A", "ඇ");
-        SINGLISH_MAP.put("AA", "ඈ");
+        // Single letters
+        CONSONANTS.put("t", "ට්");
+        CONSONANTS.put("T", "ට්");
+        CONSONANTS.put("d", "ඩ්");
+        CONSONANTS.put("D", "ඩ්");
+        CONSONANTS.put("k", "ක්");
+        CONSONANTS.put("K", "ඛ්");
+        CONSONANTS.put("g", "ග්");
+        CONSONANTS.put("G", "ඝ්");
+        CONSONANTS.put("c", "ච්");
+        CONSONANTS.put("C", "ඡ්");
+        CONSONANTS.put("j", "ජ්");
+        CONSONANTS.put("J", "ඣ්");
+        CONSONANTS.put("n", "න්");
+        CONSONANTS.put("N", "ණ්");
+        CONSONANTS.put("p", "ප්");
+        CONSONANTS.put("P", "ඵ්");
+        CONSONANTS.put("b", "බ්");
+        CONSONANTS.put("B", "භ්");
+        CONSONANTS.put("m", "ම්");
+        CONSONANTS.put("y", "ය්");
+        CONSONANTS.put("Y", "ය්");
+        CONSONANTS.put("r", "ර්");
+        CONSONANTS.put("l", "ල්");
+        CONSONANTS.put("L", "ළ්");
+        CONSONANTS.put("v", "ව්");
+        CONSONANTS.put("w", "ව්");
+        CONSONANTS.put("s", "ස්");
+        CONSONANTS.put("S", "ෂ්");
+        CONSONANTS.put("h", "හ්");
+        CONSONANTS.put("f", "ෆ්");
+        CONSONANTS.put("x", "ං");
     }
     
-    // Vowel signs (after consonant)
-    private static final Map<String, String> VOWEL_SIGNS = new HashMap<>();
+    // ═══════════════════════════════════════════════════════════════════
+    // SINGLISH TO SINHALA - STANDALONE VOWELS (වචන මුලදී)
+    // ═══════════════════════════════════════════════════════════════════
+    private static final Map<String, String> VOWELS = new HashMap<>();
     static {
-        VOWEL_SIGNS.put("a", "");
-        VOWEL_SIGNS.put("aa", "ා");
-        VOWEL_SIGNS.put("i", "ි");
-        VOWEL_SIGNS.put("ii", "ී");
-        VOWEL_SIGNS.put("u", "ු");
-        VOWEL_SIGNS.put("uu", "ූ");
-        VOWEL_SIGNS.put("e", "ෙ");
-        VOWEL_SIGNS.put("ee", "ේ");
-        VOWEL_SIGNS.put("o", "ො");
-        VOWEL_SIGNS.put("oo", "ෝ");
-        VOWEL_SIGNS.put("A", "ැ");
-        VOWEL_SIGNS.put("AA", "ෑ");
+        VOWELS.put("aa", "ආ");
+        VOWELS.put("AA", "ඈ");
+        VOWELS.put("ii", "ඊ");
+        VOWELS.put("ee", "ඊ");
+        VOWELS.put("uu", "ඌ");
+        VOWELS.put("oo", "ඕ");
+        VOWELS.put("ai", "ඓ");
+        VOWELS.put("au", "ඖ");
+        VOWELS.put("Ru", "ඍ");
+        VOWELS.put("a", "අ");
+        VOWELS.put("A", "ඇ");
+        VOWELS.put("i", "ඉ");
+        VOWELS.put("I", "ඊ");
+        VOWELS.put("u", "උ");
+        VOWELS.put("U", "ඌ");
+        VOWELS.put("e", "එ");
+        VOWELS.put("E", "ඒ");
+        VOWELS.put("o", "ඔ");
+        VOWELS.put("O", "ඕ");
     }
     
-    // Views
+    // ═══════════════════════════════════════════════════════════════════
+    // SINGLISH TO SINHALA - VOWEL MODIFIERS (පිල්ලම්)
+    // ═══════════════════════════════════════════════════════════════════
+    private static final Map<String, String> VOWEL_MODIFIERS = new HashMap<>();
+    static {
+        VOWEL_MODIFIERS.put("aa", "ා");
+        VOWEL_MODIFIERS.put("AA", "ෑ");
+        VOWEL_MODIFIERS.put("ii", "ී");
+        VOWEL_MODIFIERS.put("ee", "ී");
+        VOWEL_MODIFIERS.put("uu", "ූ");
+        VOWEL_MODIFIERS.put("oo", "ෝ");
+        VOWEL_MODIFIERS.put("ai", "ෛ");
+        VOWEL_MODIFIERS.put("au", "ෞ");
+        VOWEL_MODIFIERS.put("Ru", "ෘ");
+        VOWEL_MODIFIERS.put("a", "");  // Remove hal kirima
+        VOWEL_MODIFIERS.put("A", "ැ");
+        VOWEL_MODIFIERS.put("i", "ි");
+        VOWEL_MODIFIERS.put("I", "ී");
+        VOWEL_MODIFIERS.put("u", "ු");
+        VOWEL_MODIFIERS.put("U", "ූ");
+        VOWEL_MODIFIERS.put("e", "ෙ");
+        VOWEL_MODIFIERS.put("E", "ේ");
+        VOWEL_MODIFIERS.put("o", "ො");
+        VOWEL_MODIFIERS.put("O", "ෝ");
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // VIEWS AND STATE
+    // ═══════════════════════════════════════════════════════════════════
     private FrameLayout rootContainer;
     private LinearLayout keyboardView;
     private LinearLayout emojiRowView;
+    private View touchLayer;
     private Handler handler;
     private Vibrator vibrator;
     private KeyboardSettings settings;
@@ -195,9 +250,35 @@ public class FastKeyboardService extends InputMethodService {
     private Runnable repeatRunnable;
     private boolean isSinhalaMode = false;
     private StringBuilder singlishBuffer = new StringBuilder();
+    private boolean lastWasConsonant = false;
     
     private int navigationBarHeight = 0;
     
+    // Key info for touch detection
+    private List<KeyInfo> keyInfoList = new ArrayList<>();
+    
+    private static class KeyInfo {
+        String key;
+        View view;
+        Rect bounds = new Rect();
+        
+        KeyInfo(String key, View view) {
+            this.key = key;
+            this.view = view;
+        }
+        
+        void updateBounds() {
+            int[] location = new int[2];
+            view.getLocationOnScreen(location);
+            bounds.set(location[0], location[1],
+                      location[0] + view.getWidth(),
+                      location[1] + view.getHeight());
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // BROADCAST RECEIVER
+    // ═══════════════════════════════════════════════════════════════════
     private BroadcastReceiver settingsReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -227,6 +308,9 @@ public class FastKeyboardService extends InputMethodService {
         }
     };
     
+    // ═══════════════════════════════════════════════════════════════════
+    // LIFECYCLE
+    // ═══════════════════════════════════════════════════════════════════
     @Override
     public void onCreate() {
         super.onCreate();
@@ -269,11 +353,11 @@ public class FastKeyboardService extends InputMethodService {
         keyPreviewText.setTextColor(Color.WHITE);
         keyPreviewText.setTypeface(Typeface.DEFAULT_BOLD);
         keyPreviewText.setGravity(Gravity.CENTER);
-        keyPreviewText.setPadding(dp(20), dp(14), dp(20), dp(14));
+        keyPreviewText.setPadding(dp(24), dp(16), dp(24), dp(16));
         
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#333333"));
-        bg.setCornerRadius(dp(12));
+        bg.setColor(Color.parseColor("#444444"));
+        bg.setCornerRadius(dp(14));
         keyPreviewText.setBackground(bg);
         
         keyPreviewPopup = new PopupWindow(keyPreviewText,
@@ -309,6 +393,9 @@ public class FastKeyboardService extends InputMethodService {
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // INPUT VIEW CREATION
+    // ═══════════════════════════════════════════════════════════════════
     @Override
     public View onCreateInputView() {
         try {
@@ -318,6 +405,7 @@ public class FastKeyboardService extends InputMethodService {
             rootContainer = new FrameLayout(this);
             rootContainer.setBackgroundColor(parseColor(colorBackground));
             
+            // Main keyboard layout
             LinearLayout mainLayout = new LinearLayout(this);
             mainLayout.setOrientation(LinearLayout.VERTICAL);
             mainLayout.setBackgroundColor(parseColor(colorBackground));
@@ -337,6 +425,23 @@ public class FastKeyboardService extends InputMethodService {
             mainParams.gravity = Gravity.BOTTOM;
             rootContainer.addView(mainLayout, mainParams);
             
+            // Touch layer for gap detection (on top of keyboard)
+            touchLayer = new View(this);
+            touchLayer.setBackgroundColor(Color.TRANSPARENT);
+            FrameLayout.LayoutParams touchParams = new FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            );
+            touchLayer.setLayoutParams(touchParams);
+            touchLayer.setOnTouchListener(new View.OnTouchListener() {
+                @Override
+                public boolean onTouch(View v, MotionEvent event) {
+                    return handleTouchLayerEvent(event);
+                }
+            });
+            rootContainer.addView(touchLayer);
+            
+            // Calculate total height
             int emojiRowHeight = showEmojiRow ? dp(44) : 0;
             int mainHeight = dp(keyboardHeight);
             int totalHeight = emojiRowHeight + mainHeight + navigationBarHeight;
@@ -347,6 +452,14 @@ public class FastKeyboardService extends InputMethodService {
             ));
             
             rootContainer.setPadding(0, 0, 0, navigationBarHeight);
+            
+            // Update key bounds after layout
+            rootContainer.post(new Runnable() {
+                @Override
+                public void run() {
+                    updateAllKeyBounds();
+                }
+            });
             
             return rootContainer;
             
@@ -365,6 +478,7 @@ public class FastKeyboardService extends InputMethodService {
             isCaps = false;
             isSymbols = false;
             singlishBuffer.setLength(0);
+            lastWasConsonant = false;
             
             if (info != null) {
                 int inputClass = info.inputType & EditorInfo.TYPE_MASK_CLASS;
@@ -407,6 +521,86 @@ public class FastKeyboardService extends InputMethodService {
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // TOUCH LAYER FOR BETTER KEY DETECTION
+    // ═══════════════════════════════════════════════════════════════════
+    private void updateAllKeyBounds() {
+        for (KeyInfo info : keyInfoList) {
+            info.updateBounds();
+        }
+    }
+    
+    private boolean handleTouchLayerEvent(MotionEvent event) {
+        float x = event.getRawX();
+        float y = event.getRawY();
+        
+        // Find which key was touched or nearest key
+        KeyInfo touchedKey = null;
+        KeyInfo nearestKey = null;
+        float minDistance = Float.MAX_VALUE;
+        
+        for (KeyInfo info : keyInfoList) {
+            if (info.bounds.contains((int)x, (int)y)) {
+                touchedKey = info;
+                break;
+            }
+            
+            // Calculate distance to center of key
+            float centerX = info.bounds.centerX();
+            float centerY = info.bounds.centerY();
+            float distance = (float) Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestKey = info;
+            }
+        }
+        
+        // Use touched key or nearest key if within threshold
+        KeyInfo targetKey = touchedKey;
+        if (targetKey == null && nearestKey != null && minDistance < dp(40)) {
+            targetKey = nearestKey;
+        }
+        
+        if (targetKey == null) return false;
+        
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_DOWN:
+                targetKey.view.setAlpha(0.7f);
+                targetKey.view.setScaleX(0.95f);
+                targetKey.view.setScaleY(0.95f);
+                doVibrate();
+                
+                if (!isSpecialKey(targetKey.key)) {
+                    showKeyPreview(targetKey.view, getKeyDisplay(targetKey.key));
+                }
+                
+                processKey(targetKey.key);
+                
+                if (targetKey.key.equals("⌫") || targetKey.key.equals("SPACE")) {
+                    startRepeat(targetKey.key);
+                }
+                return true;
+                
+            case MotionEvent.ACTION_UP:
+            case MotionEvent.ACTION_CANCEL:
+                // Reset all keys
+                for (KeyInfo info : keyInfoList) {
+                    info.view.setAlpha(1f);
+                    info.view.setScaleX(1f);
+                    info.view.setScaleY(1f);
+                }
+                hideKeyPreview();
+                stopRepeat();
+                return true;
+        }
+        
+        return false;
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // EMOJI ROW
+    // ═══════════════════════════════════════════════════════════════════
     private LinearLayout createEmojiRow() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -416,7 +610,8 @@ public class FastKeyboardService extends InputMethodService {
         ));
         row.setPadding(dp(4), dp(4), dp(4), dp(4));
         row.setBackgroundColor(parseColor(colorKeySpecial));
-        row.setElevation(dp(4));
+        row.setElevation(dp(8));
+        row.setClickable(true); // Prevent touch pass-through
         
         String emojiStr = "😀,😂,❤️,👍,🔥,✨,🎉,💯";
         try {
@@ -456,7 +651,12 @@ public class FastKeyboardService extends InputMethodService {
         return row;
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // KEYBOARD LAYOUT
+    // ═══════════════════════════════════════════════════════════════════
     private LinearLayout createKeyboardLayout() {
+        keyInfoList.clear();
+        
         LinearLayout keyboard = new LinearLayout(this);
         keyboard.setOrientation(LinearLayout.VERTICAL);
         keyboard.setBackgroundColor(parseColor(colorBackground));
@@ -511,48 +711,47 @@ public class FastKeyboardService extends InputMethodService {
         tv.setGravity(Gravity.CENTER);
         tv.setTypeface(Typeface.DEFAULT_BOLD);
         
-        // Set key display text
-        String displayText = getKeyDisplay(key);
-        tv.setText(displayText);
-        
         // Text styling
         int textColor = parseColor(colorText);
         float textSize = isSpecialKey(key) ? 14 : keyTextSize;
+        String displayText = getKeyDisplay(key);
         
         if (key.equals("↵")) {
+            displayText = "↵";
             textColor = Color.WHITE;
             textSize = 20;
         } else if (key.equals("⇧")) {
             textSize = 24;
             if (isCaps) {
-                tv.setText("⇪");
+                displayText = "⇪";
                 textColor = Color.parseColor("#10b981");
             } else if (isShift) {
-                tv.setText("⬆");
+                displayText = "⬆";
                 textColor = Color.parseColor("#3b82f6");
             } else {
-                tv.setText("⇧");
+                displayText = "⇧";
             }
         } else if (key.equals("⌫")) {
-            tv.setText("⌫");
+            displayText = "⌫";
             textSize = 22;
         } else if (key.equals("SPACE")) {
-            tv.setText("GD Keyboard");
-            textSize = 12;
+            displayText = "GD Keyboard";
+            textSize = 10;
             textColor = Color.parseColor("#666666");
         } else if (key.equals("🌐")) {
-            tv.setText(isSinhalaMode ? "SI" : "EN");
+            displayText = isSinhalaMode ? "SI" : "EN";
             textSize = 13;
             textColor = isSinhalaMode ? Color.parseColor("#10b981") : Color.parseColor("#3b82f6");
         } else if (key.equals("✨")) {
-            tv.setText("✨");
+            displayText = "✨";
             textSize = 18;
         }
         
+        tv.setText(displayText);
         tv.setTextColor(textColor);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize);
         
-        // Add Sinhala subscript label for letter keys in Sinhala mode
+        // Add Sinhala label for letter keys in Sinhala mode
         if (isSinhalaMode && key.length() == 1 && Character.isLetter(key.charAt(0))) {
             String sinhalaLabel = SINHALA_LABELS.get(key.toLowerCase());
             if (sinhalaLabel != null) {
@@ -566,14 +765,14 @@ public class FastKeyboardService extends InputMethodService {
                     FrameLayout.LayoutParams.WRAP_CONTENT
                 );
                 labelParams.gravity = Gravity.TOP | Gravity.END;
-                labelParams.setMargins(0, dp(3), dp(5), 0);
+                labelParams.setMargins(0, dp(2), dp(4), 0);
                 sinhalaLabelView.setLayoutParams(labelParams);
                 
                 keyContainer.addView(sinhalaLabelView);
             }
         }
         
-        // Layout
+        // Layout params
         float weight = getKeyWeight(key);
         LinearLayout.LayoutParams containerParams = new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, weight
@@ -592,46 +791,16 @@ public class FastKeyboardService extends InputMethodService {
         // Background
         keyContainer.setBackground(createKeyBackground(key));
         
-        // Touch handling with preview
-        keyContainer.setOnTouchListener(new View.OnTouchListener() {
-            @Override
-            public boolean onTouch(View v, MotionEvent event) {
-                switch (event.getAction()) {
-                    case MotionEvent.ACTION_DOWN:
-                        v.setAlpha(0.7f);
-                        v.setScaleX(0.95f);
-                        v.setScaleY(0.95f);
-                        doVibrate();
-                        
-                        // Show key preview for letter/number keys
-                        if (!isSpecialKey(key)) {
-                            showKeyPreview(v, getKeyDisplay(key));
-                        }
-                        
-                        processKey(key);
-                        
-                        if (key.equals("⌫") || key.equals("SPACE")) {
-                            startRepeat(key);
-                        }
-                        return true;
-                        
-                    case MotionEvent.ACTION_UP:
-                    case MotionEvent.ACTION_CANCEL:
-                        v.setAlpha(1f);
-                        v.setScaleX(1f);
-                        v.setScaleY(1f);
-                        hideKeyPreview();
-                        stopRepeat();
-                        return true;
-                }
-                return false;
-            }
-        });
+        // Store key info for touch detection
+        KeyInfo keyInfo = new KeyInfo(key, keyContainer);
+        keyInfoList.add(keyInfo);
         
-        keyContainer.setClickable(true);
         return keyContainer;
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // KEY PREVIEW
+    // ═══════════════════════════════════════════════════════════════════
     private void showKeyPreview(View anchor, String text) {
         if (text == null || text.isEmpty() || text.equals("GD Keyboard")) return;
         
@@ -644,13 +813,13 @@ public class FastKeyboardService extends InputMethodService {
             keyPreviewText.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
             
             int[] location = new int[2];
-            anchor.getLocationInWindow(location);
+            anchor.getLocationOnScreen(location);
             
-            int popupWidth = Math.max(keyPreviewText.getMeasuredWidth(), dp(50));
+            int popupWidth = Math.max(keyPreviewText.getMeasuredWidth(), dp(56));
             int popupHeight = keyPreviewText.getMeasuredHeight();
             
             int x = location[0] + (anchor.getWidth() / 2) - (popupWidth / 2);
-            int y = location[1] - popupHeight - dp(15);
+            int y = location[1] - popupHeight - dp(12);
             
             if (y < 0) y = dp(10);
             
@@ -671,17 +840,13 @@ public class FastKeyboardService extends InputMethodService {
             if (keyPreviewPopup != null && keyPreviewPopup.isShowing()) {
                 keyPreviewPopup.dismiss();
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Error hiding preview", e);
-        }
+        } catch (Exception e) {}
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // KEY HELPERS
+    // ═══════════════════════════════════════════════════════════════════
     private String getKeyDisplay(String key) {
-        if (key.equals("⇧")) {
-            if (isCaps) return "⇪";
-            if (isShift) return "⬆";
-            return "⇧";
-        }
         if (key.equals("SPACE")) {
             return "GD Keyboard";
         }
@@ -733,6 +898,9 @@ public class FastKeyboardService extends InputMethodService {
         return bg;
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // REPEAT (BACKSPACE / SPACE)
+    // ═══════════════════════════════════════════════════════════════════
     private void startRepeat(final String key) {
         isRepeating = true;
         repeatRunnable = new Runnable() {
@@ -755,39 +923,21 @@ public class FastKeyboardService extends InputMethodService {
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // KEY PROCESSING
+    // ═══════════════════════════════════════════════════════════════════
     private void processKey(String key) {
         InputConnection ic = getCurrentInputConnection();
         if (ic == null) return;
         
         if (key.equals("⇧")) {
-            if (isCaps) {
-                isCaps = false;
-                isShift = false;
-            } else if (isShift) {
-                isCaps = true;
-            } else {
-                isShift = true;
-            }
-            rebuildKeyboard();
+            handleShiftKey();
         } else if (key.equals("⌫")) {
-            deleteCharacter(ic);
+            handleBackspace(ic);
         } else if (key.equals("↵")) {
-            flushSinglishBuffer(ic);
-            EditorInfo ei = getCurrentInputEditorInfo();
-            if (ei != null) {
-                int action = ei.imeOptions & EditorInfo.IME_MASK_ACTION;
-                if (action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED) {
-                    ic.commitText("\n", 1);
-                } else {
-                    ic.performEditorAction(action);
-                }
-            } else {
-                ic.commitText("\n", 1);
-            }
+            handleEnterKey(ic);
         } else if (key.equals("SPACE")) {
-            flushSinglishBuffer(ic);
-            ic.commitText(" ", 1);
-            autoUnshift();
+            handleSpaceKey(ic);
         } else if (key.equals("123")) {
             flushSinglishBuffer(ic);
             isNumbers = true;
@@ -807,90 +957,182 @@ public class FastKeyboardService extends InputMethodService {
             flushSinglishBuffer(ic);
             isSinhalaMode = !isSinhalaMode;
             singlishBuffer.setLength(0);
+            lastWasConsonant = false;
             rebuildKeyboard();
         } else if (key.equals("✨")) {
             flushSinglishBuffer(ic);
             openPopup();
         } else {
-            // Regular character
-            String text = key;
-            if ((isShift || isCaps) && key.length() == 1 && Character.isLetter(key.charAt(0))) {
-                text = key.toUpperCase();
+            handleCharacterKey(ic, key);
+        }
+    }
+    
+    private void handleShiftKey() {
+        if (isCaps) {
+            isCaps = false;
+            isShift = false;
+        } else if (isShift) {
+            isCaps = true;
+        } else {
+            isShift = true;
+        }
+        rebuildKeyboard();
+    }
+    
+    private void handleBackspace(InputConnection ic) {
+        // Clear singlish buffer first
+        if (singlishBuffer.length() > 0) {
+            singlishBuffer.setLength(singlishBuffer.length() - 1);
+            if (singlishBuffer.length() == 0) {
+                lastWasConsonant = false;
             }
-            
-            if (isSinhalaMode && key.length() == 1 && Character.isLetter(key.charAt(0))) {
-                processSinglishInput(ic, text);
+            return;
+        }
+        
+        // Fast simple delete
+        ic.deleteSurroundingText(1, 0);
+    }
+    
+    private void handleEnterKey(InputConnection ic) {
+        flushSinglishBuffer(ic);
+        EditorInfo ei = getCurrentInputEditorInfo();
+        if (ei != null) {
+            int action = ei.imeOptions & EditorInfo.IME_MASK_ACTION;
+            if (action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                ic.commitText("\n", 1);
             } else {
-                ic.commitText(text, 1);
+                ic.performEditorAction(action);
             }
-            
+        } else {
+            ic.commitText("\n", 1);
+        }
+    }
+    
+    private void handleSpaceKey(InputConnection ic) {
+        flushSinglishBuffer(ic);
+        ic.commitText(" ", 1);
+        lastWasConsonant = false;
+        autoUnshift();
+    }
+    
+    private void handleCharacterKey(InputConnection ic, String key) {
+        String text = key;
+        if ((isShift || isCaps) && key.length() == 1 && Character.isLetter(key.charAt(0))) {
+            text = key.toUpperCase();
+        }
+        
+        if (isSinhalaMode && key.length() == 1 && Character.isLetter(key.charAt(0))) {
+            processSinglishInput(ic, text);
+        } else {
+            ic.commitText(text, 1);
             autoUnshift();
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // SINGLISH TO SINHALA ENGINE
+    // ═══════════════════════════════════════════════════════════════════
     private void processSinglishInput(InputConnection ic, String input) {
-        singlishBuffer.append(input.toLowerCase());
+        singlishBuffer.append(input);
         String buffer = singlishBuffer.toString();
         
-        // Try to find longest matching pattern
-        String result = null;
-        int matchLength = 0;
-        
-        // Check for multi-character matches first (longest match)
-        for (int len = Math.min(buffer.length(), 3); len >= 1; len--) {
-            String sub = buffer.substring(buffer.length() - len);
-            if (SINGLISH_MAP.containsKey(sub)) {
-                result = SINGLISH_MAP.get(sub);
-                matchLength = len;
-                break;
-            }
-        }
+        // Try to find matches - check longest first (3, then 2, then 1)
+        String result = tryConvert(buffer);
         
         if (result != null) {
-            // Delete previously typed characters if any
-            if (matchLength > 1) {
-                ic.deleteSurroundingText(matchLength - 1, 0);
+            // Delete buffer content that was shown
+            int deleteCount = singlishBuffer.length() - input.length();
+            if (deleteCount > 0) {
+                // We need to delete what was previously typed as raw
             }
+            
             ic.commitText(result, 1);
             singlishBuffer.setLength(0);
-        } else if (buffer.length() > 2) {
-            // No match found and buffer is getting long, commit first char as-is
-            ic.commitText(String.valueOf(buffer.charAt(0)), 1);
-            singlishBuffer.deleteCharAt(0);
+            
+            // Track if last output was a consonant (ends with hal kirima)
+            lastWasConsonant = result.endsWith("්");
+        } else {
+            // Check if buffer is getting too long without match
+            if (buffer.length() >= 3) {
+                // Output first character and continue
+                String firstChar = String.valueOf(buffer.charAt(0));
+                String firstResult = tryConvertSingle(firstChar);
+                if (firstResult != null) {
+                    ic.commitText(firstResult, 1);
+                    lastWasConsonant = firstResult.endsWith("්");
+                } else {
+                    ic.commitText(firstChar, 1);
+                    lastWasConsonant = false;
+                }
+                singlishBuffer.deleteCharAt(0);
+            }
         }
+        
+        autoUnshift();
+    }
+    
+    private String tryConvert(String buffer) {
+        // Check if this is a vowel after consonant (need to apply modifier)
+        if (lastWasConsonant && buffer.length() >= 1) {
+            // Try vowel modifiers (longest first)
+            for (int len = Math.min(buffer.length(), 2); len >= 1; len--) {
+                String sub = buffer.substring(0, len);
+                if (VOWEL_MODIFIERS.containsKey(sub)) {
+                    String modifier = VOWEL_MODIFIERS.get(sub);
+                    // We need to remove the hal kirima from last consonant
+                    // This is done by the modifier itself
+                    if (sub.equals("a") && modifier.isEmpty()) {
+                        // Just remove hal kirima - return empty to signal completion
+                        return ""; // Will cause buffer clear
+                    }
+                    return modifier;
+                }
+            }
+        }
+        
+        // Try consonants (3-letter, 2-letter, 1-letter)
+        for (int len = Math.min(buffer.length(), 3); len >= 1; len--) {
+            String sub = buffer.substring(0, len);
+            if (CONSONANTS.containsKey(sub)) {
+                return CONSONANTS.get(sub);
+            }
+        }
+        
+        // Try standalone vowels (only at word start, but we'll allow anywhere for simplicity)
+        for (int len = Math.min(buffer.length(), 2); len >= 1; len--) {
+            String sub = buffer.substring(0, len);
+            if (VOWELS.containsKey(sub)) {
+                return VOWELS.get(sub);
+            }
+        }
+        
+        return null;
+    }
+    
+    private String tryConvertSingle(String c) {
+        if (CONSONANTS.containsKey(c)) return CONSONANTS.get(c);
+        if (VOWELS.containsKey(c)) return VOWELS.get(c);
+        return null;
     }
     
     private void flushSinglishBuffer(InputConnection ic) {
         if (singlishBuffer.length() > 0 && ic != null) {
             String remaining = singlishBuffer.toString();
-            if (SINGLISH_MAP.containsKey(remaining)) {
-                ic.commitText(SINGLISH_MAP.get(remaining), 1);
+            String result = tryConvert(remaining);
+            if (result != null && !result.isEmpty()) {
+                ic.commitText(result, 1);
+            } else {
+                // Commit as-is
+                ic.commitText(remaining, 1);
             }
             singlishBuffer.setLength(0);
+            lastWasConsonant = false;
         }
     }
     
-    private void deleteCharacter(InputConnection ic) {
-        if (ic == null) return;
-        
-        // Clear singlish buffer first if not empty
-        if (singlishBuffer.length() > 0) {
-            singlishBuffer.setLength(singlishBuffer.length() - 1);
-            return;
-        }
-        
-        // Simple fast delete
-        CharSequence before = ic.getTextBeforeCursor(1, 0);
-        if (before != null && before.length() > 0) {
-            char c = before.charAt(0);
-            if (Character.isLowSurrogate(c)) {
-                ic.deleteSurroundingText(2, 0);
-            } else {
-                ic.deleteSurroundingText(1, 0);
-            }
-        }
-    }
-    
+    // ═══════════════════════════════════════════════════════════════════
+    // HELPERS
+    // ═══════════════════════════════════════════════════════════════════
     private void autoUnshift() {
         if (isShift && !isCaps) {
             isShift = false;
@@ -918,6 +1160,7 @@ public class FastKeyboardService extends InputMethodService {
     private void rebuildKeyboard() {
         if (rootContainer == null) return;
         
+        keyInfoList.clear();
         rootContainer.removeAllViews();
         
         LinearLayout mainLayout = new LinearLayout(this);
@@ -939,6 +1182,22 @@ public class FastKeyboardService extends InputMethodService {
         mainParams.gravity = Gravity.BOTTOM;
         rootContainer.addView(mainLayout, mainParams);
         
+        // Re-add touch layer
+        touchLayer = new View(this);
+        touchLayer.setBackgroundColor(Color.TRANSPARENT);
+        FrameLayout.LayoutParams touchParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        );
+        touchLayer.setLayoutParams(touchParams);
+        touchLayer.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View v, MotionEvent event) {
+                return handleTouchLayerEvent(event);
+            }
+        });
+        rootContainer.addView(touchLayer);
+        
         int emojiRowHeight = showEmojiRow ? dp(44) : 0;
         int mainHeight = dp(keyboardHeight);
         int totalHeight = emojiRowHeight + mainHeight + navigationBarHeight;
@@ -951,6 +1210,14 @@ public class FastKeyboardService extends InputMethodService {
         
         rootContainer.setPadding(0, 0, 0, navigationBarHeight);
         rootContainer.setBackgroundColor(parseColor(colorBackground));
+        
+        // Update key bounds after layout
+        rootContainer.post(new Runnable() {
+            @Override
+            public void run() {
+                updateAllKeyBounds();
+            }
+        });
     }
     
     private void doVibrate() {
@@ -963,9 +1230,7 @@ public class FastKeyboardService extends InputMethodService {
                     vibrator.vibrate(vibrateDuration);
                 }
             }
-        } catch (Exception e) {
-            Log.e(TAG, "Vibration error", e);
-        }
+        } catch (Exception e) {}
     }
     
     private int dp(int value) {
