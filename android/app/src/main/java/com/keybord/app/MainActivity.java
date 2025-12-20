@@ -2,10 +2,8 @@ package com.keybord.app;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.inputmethod.InputMethodInfo;
@@ -43,13 +41,11 @@ public class MainActivity extends BridgeActivity {
             try {
                 Uri imageUri = data.getData();
                 if (imageUri != null) {
-                    // Copy image to app's internal storage
                     String savedPath = saveImageToInternal(imageUri);
                     if (savedPath != null) {
                         settings.setBackgroundImage(savedPath);
                         notifyKeyboard();
                         
-                        // Notify WebView
                         runOnUiThread(() -> {
                             getBridge().getWebView().evaluateJavascript(
                                 "if(typeof showToast === 'function') showToast('✓ Background image set!');", 
@@ -93,6 +89,46 @@ public class MainActivity extends BridgeActivity {
         }
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // MOVED TO CLASS LEVEL - This fixes the error
+    // ═══════════════════════════════════════════════════════════════════
+    private void notifyKeyboard() {
+        try {
+            Intent intent = new Intent(KeyboardSettings.ACTION_SETTINGS_CHANGED);
+            intent.setPackage(getPackageName());
+            sendBroadcast(intent);
+        } catch (Exception e) {
+            Log.e(TAG, "Error notifying keyboard", e);
+        }
+    }
+    
+    private String lightenColor(String color, float factor) {
+        try {
+            int c = android.graphics.Color.parseColor(color);
+            int r = Math.min(255, (int)(android.graphics.Color.red(c) + 255 * factor));
+            int g = Math.min(255, (int)(android.graphics.Color.green(c) + 255 * factor));
+            int b = Math.min(255, (int)(android.graphics.Color.blue(c) + 255 * factor));
+            return String.format("#%02x%02x%02x", r, g, b);
+        } catch (Exception e) {
+            return color;
+        }
+    }
+    
+    private String darkenColor(String color, float factor) {
+        try {
+            int c = android.graphics.Color.parseColor(color);
+            int r = Math.max(0, (int)(android.graphics.Color.red(c) - 255 * factor));
+            int g = Math.max(0, (int)(android.graphics.Color.green(c) - 255 * factor));
+            int b = Math.max(0, (int)(android.graphics.Color.blue(c) - 255 * factor));
+            return String.format("#%02x%02x%02x", r, g, b);
+        } catch (Exception e) {
+            return color;
+        }
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // JAVASCRIPT INTERFACE
+    // ═══════════════════════════════════════════════════════════════════
     public class NativeSettingsBridge {
         
         @JavascriptInterface
@@ -320,7 +356,6 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void clearBackgroundImage() {
             settings.setBackgroundImage("");
-            // Delete file if exists
             try {
                 File bgFile = new File(getFilesDir(), "keyboard_bg/background.jpg");
                 if (bgFile.exists()) {
@@ -328,38 +363,6 @@ public class MainActivity extends BridgeActivity {
                 }
             } catch (Exception e) {}
             notifyKeyboard();
-        }
-        
-        private void notifyKeyboard() {
-            try {
-                Intent intent = new Intent(KeyboardSettings.ACTION_SETTINGS_CHANGED);
-                intent.setPackage(getPackageName());
-                sendBroadcast(intent);
-            } catch (Exception e) {}
-        }
-        
-        private String lightenColor(String color, float factor) {
-            try {
-                int c = android.graphics.Color.parseColor(color);
-                int r = Math.min(255, (int)(android.graphics.Color.red(c) + 255 * factor));
-                int g = Math.min(255, (int)(android.graphics.Color.green(c) + 255 * factor));
-                int b = Math.min(255, (int)(android.graphics.Color.blue(c) + 255 * factor));
-                return String.format("#%02x%02x%02x", r, g, b);
-            } catch (Exception e) {
-                return color;
-            }
-        }
-        
-        private String darkenColor(String color, float factor) {
-            try {
-                int c = android.graphics.Color.parseColor(color);
-                int r = Math.max(0, (int)(android.graphics.Color.red(c) - 255 * factor));
-                int g = Math.max(0, (int)(android.graphics.Color.green(c) - 255 * factor));
-                int b = Math.max(0, (int)(android.graphics.Color.blue(c) - 255 * factor));
-                return String.format("#%02x%02x%02x", r, g, b);
-            } catch (Exception e) {
-                return color;
-            }
         }
     }
 }
