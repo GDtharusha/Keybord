@@ -242,6 +242,42 @@ public class MainActivity extends BridgeActivity {
             settings.resetToDefaults();
             notifyKeyboard();
         }
+
+        @JavascriptInterface
+        public void setKeyBackgroundColor(String color) {
+            settings.setColorKey(color);
+            // Also update special key colors
+            try {
+                int c = android.graphics.Color.parseColor(color);
+                int r = android.graphics.Color.red(c);
+                int g = android.graphics.Color.green(c);
+                int b = android.graphics.Color.blue(c);
+                // Darken for special keys
+                String special = String.format("#%02x%02x%02x", 
+                    Math.max(0, r - 30), Math.max(0, g - 30), Math.max(0, b - 30));
+                settings.setColorKeySpecial(special);
+                settings.setColorKeySpace(color);
+            } catch (Exception e) {}
+            notifyKeyboard();
+        }
+
+        @JavascriptInterface
+        public void selectBackgroundImage() {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Intent intent = new Intent(Intent.ACTION_PICK);
+                    intent.setType("image/*");
+                    startActivityForResult(intent, 1001);
+                }
+            });
+        }
+
+        @JavascriptInterface
+        public void clearBackgroundImage() {
+            settings.setBackgroundImage("");
+            notifyKeyboard();
+        }
         
         private void notifyKeyboard() {
             try {

@@ -628,6 +628,40 @@
             </div>
             <input type="range" class="slider" id="key_radiusSlider" min="0" max="30" value="8" oninput="updateSlider('key_radius', this.value, 'dp')">
         </div>
+
+        <div class="slider-container">
+            <div class="slider-header">
+                <span class="slider-label">Button Height</span>
+                <span class="slider-value" id="button_heightValue">100%</span>
+            </div>
+            <input type="range" class="slider" id="button_heightSlider" min="80" max="120" value="100" oninput="updateSlider('button_height', this.value, '%')">
+        </div>
+
+        <span class="section-label" style="margin-top:16px;">Button Background Color</span>
+        <div class="color-picker-row">
+            <div class="color-option" style="background:#1a1a1a;" onclick="selectKeyBgColor('#1a1a1a', this)">
+                <span style="color:#fff;font-size:10px;">Dark</span>
+            </div>
+            <div class="color-option" style="background:#333333;" onclick="selectKeyBgColor('#333333', this)">
+                <span style="color:#fff;font-size:10px;">Gray</span>
+            </div>
+            <div class="color-option" style="background:#ffffff;" onclick="selectKeyBgColor('#ffffff', this)">
+                <span style="color:#000;font-size:10px;">White</span>
+            </div>
+            <div class="color-picker-wrapper">
+                <input type="color" class="color-picker-native" id="keyBgColorPicker" value="#1a1a1a" onchange="selectKeyBgColorCustom(this.value)">
+            </div>
+        </div>
+
+        <span class="section-label" style="margin-top:16px;">Background Image</span>
+        <div style="display:flex;gap:10px;">
+            <button class="btn btn-secondary" style="flex:1;margin:0;" onclick="selectBackgroundImage()">
+                📷 Choose Image
+            </button>
+            <button class="btn btn-secondary" style="flex:1;margin:0;" onclick="clearBackgroundImage()">
+                ✕ Clear
+            </button>
+        </div>
     </div>
 
     <!-- Tools Card -->
@@ -655,7 +689,7 @@
     </div>
 
     <div class="footer">
-        GD Keyboard v1.0.0<br> Made with ❤️<br>
+        GD Keyboard - v1.0 ❤️<br>
         <span id="bridgeStatus" style="font-size:10px; color:rgba(255,255,255,0.2);">Initializing...</span>
     </div>
 
@@ -941,6 +975,52 @@
             setTimeout(function() {
                 toast.classList.remove('show');
             }, 2000);
+        }
+
+        // Key background color
+        function selectKeyBgColor(color, element) {
+            document.querySelectorAll('.color-picker-row .color-option').forEach(function(el) {
+                el.classList.remove('selected');
+            });
+            if (element) element.classList.add('selected');
+            applyKeyBgColor(color);
+        }
+
+        function selectKeyBgColorCustom(color) {
+            applyKeyBgColor(color);
+        }
+
+        function applyKeyBgColor(color) {
+            localStorage.setItem('key_bg_color', color);
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(function() {
+                if (bridgeReady) {
+                    try {
+                        getNativeBridge().setKeyBackgroundColor(color);
+                    } catch (e) {}
+                }
+            }, 100);
+        }
+
+        // Background image
+        function selectBackgroundImage() {
+            if (bridgeReady) {
+                try {
+                    getNativeBridge().selectBackgroundImage();
+                } catch (e) {}
+            } else {
+                showToast('Connect to keyboard first');
+            }
+        }
+
+        function clearBackgroundImage() {
+            localStorage.removeItem('bg_image');
+            if (bridgeReady) {
+                try {
+                    getNativeBridge().clearBackgroundImage();
+                } catch (e) {}
+            }
+            showToast('Background cleared');
         }
 
         document.addEventListener('DOMContentLoaded', startConnectionCheck);

@@ -94,6 +94,24 @@ public class KeyboardSettings {
     public String getCurrentTheme() { return getTheme(); }
     public void setCurrentTheme(String theme) { setTheme(theme); }
     
+    // Background image
+    public String getBackgroundImage() { 
+        return prefs.getString("bg_image", ""); 
+    }
+    
+    public void setBackgroundImage(String path) { 
+        editor.putString("bg_image", path).apply(); 
+    }
+    
+    // Button height percentage
+    public int getButtonHeight() { 
+        return prefs.getInt("button_height", 100); 
+    }
+    
+    public void setButtonHeight(int height) { 
+        editor.putInt("button_height", height).apply(); 
+    }
+
     // Apply theme preset
     public void applyTheme(String themeName) {
         switch (themeName) {
