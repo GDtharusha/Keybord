@@ -79,10 +79,6 @@
             cursor: pointer;
         }
         
-        .connection-banner .banner-btn:active {
-            transform: scale(0.95);
-        }
-        
         .status-bar {
             display: flex;
             gap: 12px;
@@ -205,7 +201,7 @@
             margin-bottom: 12px;
             display: block;
         }
-        /* Theme Options - 3 buttons */
+        /* Theme Options */
         
         .theme-options {
             display: flex;
@@ -261,10 +257,6 @@
             background: linear-gradient(135deg, #ffffff, #e0e0e0);
         }
         
-        .theme-white .theme-name {
-            color: #fff;
-        }
-        
         .theme-custom {
             background: linear-gradient(135deg, #667eea, #764ba2);
         }
@@ -273,13 +265,14 @@
             background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb, #ff9ff3);
             border: none;
         }
-        /* Color Picker */
+        /* Color Picker Row */
         
         .color-picker-row {
             display: flex;
             gap: 10px;
             align-items: center;
             margin-bottom: 12px;
+            flex-wrap: wrap;
         }
         
         .color-option {
@@ -293,6 +286,7 @@
             align-items: center;
             justify-content: center;
             font-size: 18px;
+            font-weight: bold;
         }
         
         .color-option:active {
@@ -306,40 +300,38 @@
         
         .color-option-black {
             background: #000000;
-            border: 2px solid #333;
+            color: #fff;
         }
         
         .color-option-white {
             background: #ffffff;
+            color: #000;
         }
+        /* Native Color Picker */
         
-        .color-option-custom {
-            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb);
+        .color-picker-wrapper {
             position: relative;
-            overflow: hidden;
-        }
-        
-        .custom-color-input {
-            flex: 1;
-            height: 44px;
-            border-radius: 12px;
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            background: rgba(0, 0, 0, 0.3);
-            padding: 0 12px;
-            color: #fff;
-            font-size: 14px;
-        }
-        
-        .custom-color-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-        }
-        
-        .color-preview-box {
             width: 44px;
             height: 44px;
+        }
+        
+        .color-picker-native {
+            width: 44px;
+            height: 44px;
+            border: none;
             border-radius: 12px;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            cursor: pointer;
+            padding: 0;
+            background: linear-gradient(135deg, #ff6b6b, #feca57, #48dbfb);
+        }
+        
+        .color-picker-native::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        
+        .color-picker-native::-webkit-color-swatch {
+            border: none;
+            border-radius: 10px;
         }
         
         .setting-row {
@@ -547,38 +539,33 @@
     <!-- Theme Card -->
     <div class="card">
         <h2>🎨 Keyboard Theme</h2>
+
         <span class="section-label">Background Color</span>
-        <div class="theme-options">
-            <div class="theme-option theme-black selected" data-theme="black" onclick="selectTheme('black')">
-                <div class="theme-preview"></div>
-                <div class="theme-name">Black</div>
+        <div class="color-picker-row">
+            <div class="color-option color-option-black selected" onclick="selectBgColor('#000000', this)">
+                <span style="color:#fff;">A</span>
             </div>
-            <div class="theme-option theme-white" data-theme="white" onclick="selectTheme('white')">
-                <div class="theme-preview"></div>
-                <div class="theme-name">White</div>
+            <div class="color-option color-option-white" onclick="selectBgColor('#f5f5f5', this)">
+                <span style="color:#000;">A</span>
             </div>
-            <div class="theme-option theme-custom" data-theme="custom" onclick="selectTheme('custom')">
-                <div class="theme-preview"></div>
-                <div class="theme-name">Custom</div>
+            <div class="color-picker-wrapper">
+                <input type="color" class="color-picker-native" id="bgColorPicker" value="#1a1a2e" onchange="selectBgColorCustom(this.value)">
             </div>
+            <span style="font-size:12px; color:rgba(255,255,255,0.5);">Custom</span>
         </div>
 
-        <!-- Custom Background Color -->
-        <div id="customBgSection" style="display:none;">
-            <span class="section-label">Custom Background Color</span>
-            <div class="color-picker-row">
-                <input type="text" class="custom-color-input" id="customBgColor" placeholder="#1a1a2e" value="#1a1a2e" oninput="updateCustomBgColor(this.value)">
-                <div class="color-preview-box" id="bgColorPreview" style="background:#1a1a2e;"></div>
-            </div>
-        </div>
-
-        <!-- Text Color -->
         <span class="section-label">Text Color</span>
         <div class="color-picker-row">
-            <div class="color-option color-option-white selected" data-textcolor="white" onclick="selectTextColor('white')">A</div>
-            <div class="color-option color-option-black" data-textcolor="black" onclick="selectTextColor('black')" style="color:#fff;">A</div>
-            <div class="color-option color-option-custom" data-textcolor="custom" onclick="selectTextColor('custom')">🎨</div>
-            <input type="text" class="custom-color-input" id="customTextColor" placeholder="#ffffff" value="#ffffff" oninput="updateCustomTextColor(this.value)" style="display:none;">
+            <div class="color-option color-option-white selected" onclick="selectTextColor('#ffffff', this)" id="textWhite">
+                <span style="color:#000;">A</span>
+            </div>
+            <div class="color-option color-option-black" onclick="selectTextColor('#000000', this)" id="textBlack">
+                <span style="color:#fff;">A</span>
+            </div>
+            <div class="color-picker-wrapper">
+                <input type="color" class="color-picker-native" id="textColorPicker" value="#ffffff" onchange="selectTextColorCustom(this.value)">
+            </div>
+            <span style="font-size:12px; color:rgba(255,255,255,0.5);">Custom</span>
         </div>
     </div>
 
@@ -599,7 +586,7 @@
                 <span class="slider-label">Vibration Strength</span>
                 <span class="slider-value" id="vibrationValue">5ms</span>
             </div>
-            <input type="range" class="slider" id="vibrationStrengthSlider" min="1" max="30" value="5" oninput="updateVibrationStrength(this.value)">
+            <input type="range" class="slider" id="vibrationStrengthSlider" min="1" max="30" value="5" oninput="updateSlider('vibration_strength', this.value, 'ms')">
         </div>
 
         <div class="setting-row">
@@ -613,41 +600,41 @@
         <div class="slider-container">
             <div class="slider-header">
                 <span class="slider-label">Keyboard Height</span>
-                <span class="slider-value" id="heightValue">245dp</span>
+                <span class="slider-value" id="keyboard_heightValue">215dp</span>
             </div>
-            <input type="range" class="slider" id="heightSlider" min="200" max="300" value="245" oninput="updateKeyboardHeight(this.value)">
+            <input type="range" class="slider" id="keyboard_heightSlider" min="200" max="300" value="215" oninput="updateSlider('keyboard_height', this.value, 'dp')">
         </div>
 
         <div class="slider-container">
             <div class="slider-header">
                 <span class="slider-label">Key Size</span>
-                <span class="slider-value" id="keySizeValue">20sp</span>
+                <span class="slider-value" id="key_text_sizeValue">20sp</span>
             </div>
-            <input type="range" class="slider" id="keySizeSlider" min="16" max="28" value="20" oninput="updateKeySize(this.value)">
+            <input type="range" class="slider" id="key_text_sizeSlider" min="16" max="28" value="20" oninput="updateSlider('key_text_size', this.value, 'sp')">
         </div>
 
         <div class="slider-container">
             <div class="slider-header">
                 <span class="slider-label">Key Gap</span>
-                <span class="slider-value" id="keyGapValue">2dp</span>
+                <span class="slider-value" id="key_gapValue">2dp</span>
             </div>
-            <input type="range" class="slider" id="keyGapSlider" min="0" max="10" value="2" oninput="updateKeyGap(this.value)">
+            <input type="range" class="slider" id="key_gapSlider" min="0" max="10" value="2" oninput="updateSlider('key_gap', this.value, 'dp')">
         </div>
 
         <div class="slider-container" style="border-bottom:none;">
             <div class="slider-header">
                 <span class="slider-label">Key Roundness</span>
-                <span class="slider-value" id="radiusValue">8dp</span>
+                <span class="slider-value" id="key_radiusValue">8dp</span>
             </div>
-            <input type="range" class="slider" id="radiusSlider" min="0" max="20" value="8" oninput="updateKeyRadius(this.value)">
+            <input type="range" class="slider" id="key_radiusSlider" min="0" max="30" value="8" oninput="updateSlider('key_radius', this.value, 'dp')">
         </div>
     </div>
 
     <!-- Tools Card -->
     <div class="card">
         <h2>🛠️ Tools</h2>
-        <button class="btn btn-accent" onclick="showFloatingWindow()">
-            ✨ Open Settings Popup
+        <button class="btn btn-accent" onclick="showPopup()">
+            ✨ Open Popup Window
         </button>
         <button class="btn btn-secondary" onclick="requestOverlayPermission()">
             🔓 Grant Overlay Permission
@@ -661,14 +648,14 @@
     <div class="card">
         <h2>🧪 Test Keyboard</h2>
         <div class="test-section">
-            <label class="section-label">Tap below to test (try emojis too 😀🔥❤️):</label>
-            <input type="text" class="test-input" placeholder="Type something here...">
-            <input type="text" class="test-input" placeholder="Try deleting emojis..." style="margin-top:8px;">
+            <label class="section-label">Type here to test (try emojis 😀🔥❤️):</label>
+            <input type="text" class="test-input" id="testInput1" placeholder="Type something here...">
+            <input type="text" class="test-input" id="testInput2" placeholder="Try deleting emojis..." style="margin-top:8px;">
         </div>
     </div>
 
     <div class="footer">
-        KeyBord v1.0.0<br> Made with ❤️<br>
+        GD Keyboard v1.0.0<br> Made with ❤️<br>
         <span id="bridgeStatus" style="font-size:10px; color:rgba(255,255,255,0.2);">Initializing...</span>
     </div>
 
@@ -676,14 +663,7 @@
 
     <script>
         var bridgeReady = false;
-        var connectionCheckInterval = null;
-        var checkCount = 0;
-
-        // Current settings state
-        var currentTheme = 'black';
-        var currentTextColor = 'white';
-        var customBgColor = '#1a1a2e';
-        var customTextColorValue = '#ffffff';
+        var updateTimeout = null;
 
         function getNativeBridge() {
             if (typeof NativeSettings !== 'undefined' && NativeSettings !== null) {
@@ -692,66 +672,46 @@
             return null;
         }
 
-        function isBridgeAvailable() {
-            var bridge = getNativeBridge();
-            if (bridge) {
-                try {
-                    bridge.log('Bridge check');
-                    return true;
-                } catch (e) {
-                    return false;
+        function startConnectionCheck() {
+            var checkCount = 0;
+            var interval = setInterval(function() {
+                checkCount++;
+                var bridge = getNativeBridge();
+                if (bridge) {
+                    try {
+                        bridge.log('Connected');
+                        bridgeReady = true;
+                        clearInterval(interval);
+                        updateConnectionUI(true);
+                        loadAllSettings();
+                        checkAllStatus();
+                        showToast('✓ Connected!');
+                    } catch (e) {}
+                } else if (checkCount >= 30) {
+                    clearInterval(interval);
+                    updateConnectionUI(false);
+                    loadFromLocalStorage();
                 }
-            }
-            return false;
+                document.getElementById('bannerMessage').textContent = 'Connecting... (' + checkCount + ')';
+            }, 100);
         }
 
         function updateConnectionUI(connected) {
             var banner = document.getElementById('connectionBanner');
             var icon = document.getElementById('bannerIcon');
             var message = document.getElementById('bannerMessage');
-            var btn = document.getElementById('bannerBtn');
             var status = document.getElementById('bridgeStatus');
 
             if (connected) {
                 banner.classList.add('connected');
                 icon.textContent = '✓';
-                message.textContent = 'Connected to keyboard service';
-                btn.textContent = 'Refresh';
-                btn.onclick = forceReload;
+                message.textContent = 'Connected';
                 status.textContent = 'Native Bridge: Connected ✓';
-                bridgeReady = true;
             } else {
-                banner.classList.remove('connected');
-                icon.textContent = '⏳';
-                message.textContent = 'Connecting... (' + checkCount + ')';
-                btn.textContent = 'Reload';
-                btn.onclick = forceReload;
-                status.textContent = 'Native Bridge: Connecting...';
-                bridgeReady = false;
+                icon.textContent = '⚠️';
+                message.textContent = 'Offline Mode';
+                status.textContent = 'Native Bridge: Offline';
             }
-        }
-
-        function startConnectionCheck() {
-            checkCount = 0;
-            connectionCheckInterval = setInterval(function() {
-                checkCount++;
-                if (isBridgeAvailable()) {
-                    clearInterval(connectionCheckInterval);
-                    connectionCheckInterval = null;
-                    updateConnectionUI(true);
-                    loadAllSettings();
-                    checkAllStatus();
-                    showToast('✓ Connected!');
-                } else if (checkCount >= 50) {
-                    clearInterval(connectionCheckInterval);
-                    connectionCheckInterval = null;
-                    updateConnectionUI(false);
-                    document.getElementById('bannerMessage').textContent = 'Connection failed - tap Reload';
-                    loadFromLocalStorage();
-                } else {
-                    updateConnectionUI(false);
-                }
-            }, 100);
         }
 
         function forceReload() {
@@ -762,57 +722,48 @@
             if (!bridgeReady) return;
             try {
                 var bridge = getNativeBridge();
-                if (!bridge) return;
 
                 var isEnabled = bridge.isKeyboardEnabled();
-                var enabledEl = document.getElementById('statusEnabled');
-                enabledEl.textContent = isEnabled ? 'Enabled ✓' : 'Disabled';
-                enabledEl.className = 'value ' + (isEnabled ? 'success' : 'error');
+                document.getElementById('statusEnabled').textContent = isEnabled ? 'Enabled ✓' : 'Disabled';
+                document.getElementById('statusEnabled').className = 'value ' + (isEnabled ? 'success' : 'error');
 
                 var isActive = bridge.isKeyboardActive();
-                var activeEl = document.getElementById('statusActive');
-                activeEl.textContent = isActive ? 'Active ✓' : 'Not Active';
-                activeEl.className = 'value ' + (isActive ? 'success' : 'warning');
+                document.getElementById('statusActive').textContent = isActive ? 'Active ✓' : 'Not Active';
+                document.getElementById('statusActive').className = 'value ' + (isActive ? 'success' : 'warning');
 
                 var canOverlay = bridge.canDrawOverlays();
-                var overlayEl = document.getElementById('statusOverlay');
-                overlayEl.textContent = canOverlay ? 'Granted ✓' : 'Denied';
-                overlayEl.className = 'value ' + (canOverlay ? 'success' : 'warning');
-            } catch (e) {
-                console.error('Status check error:', e);
-            }
+                document.getElementById('statusOverlay').textContent = canOverlay ? 'Granted ✓' : 'Denied';
+                document.getElementById('statusOverlay').className = 'value ' + (canOverlay ? 'success' : 'warning');
+            } catch (e) {}
         }
 
         function openKeyboardSettings() {
             if (bridgeReady) {
                 try {
                     getNativeBridge().openKeyboardSettings();
-                    showToast('📱 Opening settings...');
                 } catch (e) {}
-            } else {
-                showToast('📱 Go to: Settings → System → Keyboard');
             }
+            showToast('📱 Opening settings...');
         }
 
         function showKeyboardPicker() {
             if (bridgeReady) {
                 try {
                     getNativeBridge().showKeyboardPicker();
-                    showToast('⌨️ Select KeyBord');
                 } catch (e) {}
             }
+            showToast('⌨️ Select GD Keyboard');
         }
 
         function requestOverlayPermission() {
             if (bridgeReady) {
                 try {
                     getNativeBridge().requestOverlayPermission();
-                    showToast('🔓 Opening permissions...');
                 } catch (e) {}
             }
         }
 
-        function showFloatingWindow() {
+        function showPopup() {
             if (bridgeReady) {
                 try {
                     getNativeBridge().showFloatingWindow();
@@ -821,191 +772,116 @@
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // THEME FUNCTIONS
+        // COLOR FUNCTIONS - No text input, direct color picker
         // ═══════════════════════════════════════════════════════════════
 
-        function selectTheme(theme) {
-            currentTheme = theme;
-
-            document.querySelectorAll('.theme-option').forEach(function(el) {
+        function selectBgColor(color, element) {
+            document.querySelectorAll('.color-picker-row .color-option').forEach(function(el) {
                 el.classList.remove('selected');
-                if (el.dataset.theme === theme) {
-                    el.classList.add('selected');
-                }
             });
+            if (element) element.classList.add('selected');
 
-            document.getElementById('customBgSection').style.display = (theme === 'custom') ? 'block' : 'none';
-
-            var bgColor = '#1a1a2e';
-            if (theme === 'black') {
-                bgColor = '#000000';
-            } else if (theme === 'white') {
-                bgColor = '#f5f5f5';
-            } else if (theme === 'custom') {
-                bgColor = customBgColor;
-            }
-
-            localStorage.setItem('theme', theme);
-            localStorage.setItem('bg_color', bgColor);
-
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().setBackgroundColor(bgColor);
-                    // Auto-adjust text color for white theme
-                    if (theme === 'white' && currentTextColor === 'white') {
-                        selectTextColor('black');
-                    }
-                } catch (e) {}
-            }
-
-            showToast('🎨 Theme: ' + theme);
+            applyBgColor(color);
         }
 
-        function updateCustomBgColor(color) {
-            if (color.match(/^#[0-9A-Fa-f]{6}$/)) {
-                customBgColor = color;
-                document.getElementById('bgColorPreview').style.background = color;
-                localStorage.setItem('custom_bg_color', color);
-                localStorage.setItem('bg_color', color);
+        function selectBgColorCustom(color) {
+            document.querySelectorAll('.color-picker-row .color-option').forEach(function(el) {
+                el.classList.remove('selected');
+            });
+            applyBgColor(color);
+        }
 
-                if (bridgeReady && currentTheme === 'custom') {
+        function applyBgColor(color) {
+            localStorage.setItem('bg_color', color);
+
+            // Debounce updates to prevent lag
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(function() {
+                if (bridgeReady) {
                     try {
                         getNativeBridge().setBackgroundColor(color);
                     } catch (e) {}
                 }
-            }
+            }, 100);
         }
 
-        function selectTextColor(colorType) {
-            currentTextColor = colorType;
-
-            document.querySelectorAll('.color-option').forEach(function(el) {
+        function selectTextColor(color, element) {
+            document.querySelectorAll('#textWhite, #textBlack').forEach(function(el) {
                 el.classList.remove('selected');
-                if (el.dataset.textcolor === colorType) {
-                    el.classList.add('selected');
-                }
             });
+            if (element) element.classList.add('selected');
 
-            document.getElementById('customTextColor').style.display = (colorType === 'custom') ? 'block' : 'none';
-
-            var textColor = '#ffffff';
-            if (colorType === 'white') {
-                textColor = '#ffffff';
-            } else if (colorType === 'black') {
-                textColor = '#000000';
-            } else if (colorType === 'custom') {
-                textColor = customTextColorValue;
-            }
-
-            localStorage.setItem('text_color_type', colorType);
-            localStorage.setItem('text_color', textColor);
-
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().setTextColor(textColor);
-                } catch (e) {}
-            }
-
-            showToast('🎨 Text color updated');
+            applyTextColor(color);
         }
 
-        function updateCustomTextColor(color) {
-            if (color.match(/^#[0-9A-Fa-f]{6}$/)) {
-                customTextColorValue = color;
-                localStorage.setItem('custom_text_color', color);
-                localStorage.setItem('text_color', color);
+        function selectTextColorCustom(color) {
+            document.querySelectorAll('#textWhite, #textBlack').forEach(function(el) {
+                el.classList.remove('selected');
+            });
+            applyTextColor(color);
+        }
 
-                if (bridgeReady && currentTextColor === 'custom') {
+        function applyTextColor(color) {
+            localStorage.setItem('text_color', color);
+
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(function() {
+                if (bridgeReady) {
                     try {
                         getNativeBridge().setTextColor(color);
                     } catch (e) {}
                 }
-            }
+            }, 100);
         }
 
         // ═══════════════════════════════════════════════════════════════
         // SETTINGS FUNCTIONS
         // ═══════════════════════════════════════════════════════════════
 
-        function toggleSetting(settingName) {
-            var toggle = document.getElementById('toggle_' + settingName);
+        function toggleSetting(name) {
+            var toggle = document.getElementById('toggle_' + name);
             toggle.classList.toggle('active');
             var isActive = toggle.classList.contains('active');
 
-            if (settingName === 'vibration') {
+            if (name === 'vibration') {
                 document.getElementById('vibrationSlider').style.display = isActive ? 'block' : 'none';
             }
 
-            localStorage.setItem(settingName, isActive ? 'true' : 'false');
+            localStorage.setItem(name, isActive);
 
             if (bridgeReady) {
                 try {
-                    getNativeBridge().saveSettingBool(settingName, isActive);
+                    getNativeBridge().saveSettingBool(name, isActive);
                 } catch (e) {}
             }
 
-            showToast(settingName + ': ' + (isActive ? 'ON' : 'OFF'));
+            showToast(name + ': ' + (isActive ? 'ON' : 'OFF'));
         }
 
-        function updateVibrationStrength(value) {
-            document.getElementById('vibrationValue').textContent = value + 'ms';
-            localStorage.setItem('vibration_strength', value);
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().saveSettingInt('vibration_strength', parseInt(value));
-                } catch (e) {}
-            }
-        }
+        function updateSlider(name, value, unit) {
+            document.getElementById(name + 'Value').textContent = value + unit;
+            localStorage.setItem(name, value);
 
-        function updateKeyboardHeight(value) {
-            document.getElementById('heightValue').textContent = value + 'dp';
-            localStorage.setItem('keyboard_height', value);
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().saveSettingInt('keyboard_height', parseInt(value));
-                } catch (e) {}
-            }
-        }
-
-        function updateKeySize(value) {
-            document.getElementById('keySizeValue').textContent = value + 'sp';
-            localStorage.setItem('key_text_size', value);
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().saveSettingInt('key_text_size', parseInt(value));
-                } catch (e) {}
-            }
-        }
-
-        function updateKeyGap(value) {
-            document.getElementById('keyGapValue').textContent = value + 'dp';
-            localStorage.setItem('key_gap', value);
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().saveSettingInt('key_gap', parseInt(value));
-                } catch (e) {}
-            }
-        }
-
-        function updateKeyRadius(value) {
-            document.getElementById('radiusValue').textContent = value + 'dp';
-            localStorage.setItem('key_radius', value);
-            if (bridgeReady) {
-                try {
-                    getNativeBridge().saveSettingInt('key_radius', parseInt(value));
-                } catch (e) {}
-            }
+            // Debounce to prevent lag
+            if (updateTimeout) clearTimeout(updateTimeout);
+            updateTimeout = setTimeout(function() {
+                if (bridgeReady) {
+                    try {
+                        getNativeBridge().saveSettingInt(name, parseInt(value));
+                    } catch (e) {}
+                }
+            }, 150);
         }
 
         function resetAllSettings() {
-            if (confirm('Reset all settings to defaults?')) {
+            if (confirm('Reset all settings?')) {
                 localStorage.clear();
                 if (bridgeReady) {
                     try {
                         getNativeBridge().resetAllSettings();
                     } catch (e) {}
                 }
-                showToast('🔄 Settings reset!');
+                showToast('🔄 Reset!');
                 setTimeout(forceReload, 500);
             }
         }
@@ -1023,50 +899,31 @@
             try {
                 var bridge = getNativeBridge();
 
-                // Load toggles
                 var vibEnabled = bridge.getSettingBool('vibration', true);
                 document.getElementById('toggle_vibration').classList.toggle('active', vibEnabled);
                 document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
 
                 document.getElementById('toggle_emoji_row').classList.toggle('active', bridge.getSettingBool('emoji_row', false));
 
-                // Load sliders
-                var vibStrength = bridge.getSettingInt('vibration_strength', 5);
-                document.getElementById('vibrationStrengthSlider').value = vibStrength;
-                document.getElementById('vibrationValue').textContent = vibStrength + 'ms';
-
-                var kbHeight = bridge.getSettingInt('keyboard_height', 245);
-                document.getElementById('heightSlider').value = kbHeight;
-                document.getElementById('heightValue').textContent = kbHeight + 'dp';
-
-                var keySize = bridge.getSettingInt('key_text_size', 20);
-                document.getElementById('keySizeSlider').value = keySize;
-                document.getElementById('keySizeValue').textContent = keySize + 'sp';
-
-                var keyGap = bridge.getSettingInt('key_gap', 2);
-                document.getElementById('keyGapSlider').value = keyGap;
-                document.getElementById('keyGapValue').textContent = keyGap + 'dp';
-
-                var keyRadius = bridge.getSettingInt('key_radius', 8);
-                document.getElementById('radiusSlider').value = keyRadius;
-                document.getElementById('radiusValue').textContent = keyRadius + 'dp';
-
-                // Load theme
-                var theme = bridge.getSetting('theme', 'black');
-                selectThemeUI(theme);
-
+                loadSlider('vibration_strength', 5, 'ms');
+                loadSlider('keyboard_height', 215, 'dp');
+                loadSlider('key_text_size', 20, 'sp');
+                loadSlider('key_gap', 2, 'dp');
+                loadSlider('key_radius', 8, 'dp');
             } catch (e) {
-                console.error('Error loading settings:', e);
                 loadFromLocalStorage();
             }
         }
 
-        function selectThemeUI(theme) {
-            currentTheme = theme;
-            document.querySelectorAll('.theme-option').forEach(function(el) {
-                el.classList.toggle('selected', el.dataset.theme === theme);
-            });
-            document.getElementById('customBgSection').style.display = (theme === 'custom') ? 'block' : 'none';
+        function loadSlider(name, def, unit) {
+            var value = def;
+            if (bridgeReady) {
+                try {
+                    value = getNativeBridge().getSettingInt(name, def);
+                } catch (e) {}
+            }
+            document.getElementById(name + 'Slider').value = value;
+            document.getElementById(name + 'Value').textContent = value + unit;
         }
 
         function loadFromLocalStorage() {
@@ -1075,40 +932,18 @@
             document.getElementById('vibrationSlider').style.display = vibEnabled ? 'block' : 'none';
 
             document.getElementById('toggle_emoji_row').classList.toggle('active', localStorage.getItem('emoji_row') === 'true');
-
-            var kbHeight = localStorage.getItem('keyboard_height') || '245';
-            document.getElementById('heightSlider').value = kbHeight;
-            document.getElementById('heightValue').textContent = kbHeight + 'dp';
-
-            var keySize = localStorage.getItem('key_text_size') || '20';
-            document.getElementById('keySizeSlider').value = keySize;
-            document.getElementById('keySizeValue').textContent = keySize + 'sp';
-
-            var keyGap = localStorage.getItem('key_gap') || '2';
-            document.getElementById('keyGapSlider').value = keyGap;
-            document.getElementById('keyGapValue').textContent = keyGap + 'dp';
-
-            var keyRadius = localStorage.getItem('key_radius') || '8';
-            document.getElementById('radiusSlider').value = keyRadius;
-            document.getElementById('radiusValue').textContent = keyRadius + 'dp';
-
-            var savedTheme = localStorage.getItem('theme') || 'black';
-            selectThemeUI(savedTheme);
         }
 
-        function showToast(message) {
+        function showToast(msg) {
             var toast = document.getElementById('toast');
-            toast.textContent = message;
+            toast.textContent = msg;
             toast.classList.add('show');
             setTimeout(function() {
                 toast.classList.remove('show');
-            }, 2500);
+            }, 2000);
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('KeyBord App Starting...');
-            startConnectionCheck();
-        });
+        document.addEventListener('DOMContentLoaded', startConnectionCheck);
 
         window.addEventListener('focus', function() {
             if (bridgeReady) checkAllStatus();

@@ -6,32 +6,30 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
 import android.graphics.Color;
+import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.inputmethodservice.InputMethodService;
-import android.media.AudioManager;
-import android.media.ToneGenerator;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
 import android.os.VibrationEffect;
-import android.text.TextUtils;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.TextView;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class FastKeyboardService extends InputMethodService {
     
@@ -61,32 +59,36 @@ public class FastKeyboardService extends InputMethodService {
         {"q", "w", "e", "r", "t", "y", "u", "i", "o", "p"},
         {"a", "s", "d", "f", "g", "h", "j", "k", "l"},
         {"⇧", "z", "x", "c", "v", "b", "n", "m", "⌫"},
-        {"123", "🌐", ",", "SPACE", ".", "✨", "↵"}
+        {"123", ",", "SPACE", ".", "↵"}
     };
     
     private static final String[][] LAYOUT_NUMBERS = {
         {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"},
         {"@", "#", "$", "%", "&", "-", "+", "(", ")"},
         {"#+=", "*", "\"", "'", ":", ";", "!", "?", "⌫"},
-        {"ABC", "🌐", ",", "SPACE", ".", "✨", "↵"}
+        {"ABC", ",", "SPACE", ".", "↵"}
     };
     
     private static final String[][] LAYOUT_SYMBOLS = {
         {"~", "`", "|", "•", "√", "π", "÷", "×", "¶", "∆"},
         {"£", "€", "¥", "^", "°", "=", "{", "}", "\\"},
         {"123", "©", "®", "™", "✓", "[", "]", "<", "⌫"},
-        {"ABC", "🌐", ",", "SPACE", ".", "✨", "↵"}
+        {"ABC", ",", "SPACE", ".", "↵"}
     };
     
-    // Views and state
+    // Views
     private FrameLayout rootContainer;
     private LinearLayout keyboardView;
-    private FrameLayout touchLayer;
+    private LinearLayout emojiRowView;
     private Handler handler;
     private Vibrator vibrator;
-    private ToneGenerator toneGenerator;
     private KeyboardSettings settings;
     
+    // Key preview popup
+    private PopupWindow keyPreviewPopup;
+    private TextView keyPreviewText;
+    
+    // State
     private boolean isShift = false;
     private boolean isCaps = false;
     private boolean isNumbers = false;
@@ -95,29 +97,6 @@ public class FastKeyboardService extends InputMethodService {
     private Runnable repeatRunnable;
     
     private int navigationBarHeight = 0;
-    
-    // Store key positions for touch detection
-    private List<KeyInfo> keyInfoList = new ArrayList<>();
-    
-    private static class KeyInfo {
-        String key;
-        Rect bounds;
-        View view;
-        
-        KeyInfo(String key, View view) {
-            this.key = key;
-            this.view = view;
-            this.bounds = new Rect();
-        }
-        
-        void updateBounds() {
-            int[] location = new int[2];
-            view.getLocationOnScreen(location);
-            bounds.set(location[0], location[1], 
-                      location[0] + view.getWidth(), 
-                      location[1] + view.getHeight());
-        }
-    }
     
     private BroadcastReceiver settingsReceiver = new BroadcastReceiver() {
         @Override
@@ -151,25 +130,18 @@ public class FastKeyboardService extends InputMethodService {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "onCreate");
-        
         handler = new Handler(Looper.getMainLooper());
         
         try {
             settings = new KeyboardSettings(this);
             loadSettings();
-        } catch (Exception e) {
-            Log.e(TAG, "Error creating settings", e);
-        }
+        } catch (Exception e) {}
         
         calculateNavigationBarHeight();
+        setupKeyPreviewPopup();
         
         try {
             vibrator = (Vibrator) getSystemService(Context.VIBRATOR_SERVICE);
-        } catch (Exception e) {}
-        
-        try {
-            toneGenerator = new ToneGenerator(AudioManager.STREAM_SYSTEM, 50);
         } catch (Exception e) {}
         
         try {
@@ -185,11 +157,32 @@ public class FastKeyboardService extends InputMethodService {
         } catch (Exception e) {}
     }
     
+    private void setupKeyPreviewPopup() {
+        keyPreviewText = new TextView(this);
+        keyPreviewText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+        keyPreviewText.setTextColor(Color.WHITE);
+        keyPreviewText.setTypeface(Typeface.DEFAULT_BOLD);
+        keyPreviewText.setGravity(Gravity.CENTER);
+        keyPreviewText.setPadding(dp(16), dp(12), dp(16), dp(12));
+        
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#333333"));
+        bg.setCornerRadius(dp(12));
+        keyPreviewText.setBackground(bg);
+        
+        keyPreviewPopup = new PopupWindow(keyPreviewText, 
+            ViewGroup.LayoutParams.WRAP_CONTENT, 
+            ViewGroup.LayoutParams.WRAP_CONTENT);
+        keyPreviewPopup.setClippingEnabled(false);
+    }
+    
     @Override
     public void onDestroy() {
         stopRepeat();
+        if (keyPreviewPopup != null && keyPreviewPopup.isShowing()) {
+            keyPreviewPopup.dismiss();
+        }
         try { unregisterReceiver(settingsReceiver); } catch (Exception e) {}
-        try { if (toneGenerator != null) toneGenerator.release(); } catch (Exception e) {}
         super.onDestroy();
     }
     
@@ -211,8 +204,6 @@ public class FastKeyboardService extends InputMethodService {
     
     @Override
     public View onCreateInputView() {
-        Log.d(TAG, "onCreateInputView");
-        
         try {
             loadSettings();
             calculateNavigationBarHeight();
@@ -220,31 +211,30 @@ public class FastKeyboardService extends InputMethodService {
             rootContainer = new FrameLayout(this);
             rootContainer.setBackgroundColor(parseColor(colorBackground));
             
-            keyboardView = createKeyboardLayout();
+            // Main keyboard layout
+            LinearLayout mainLayout = new LinearLayout(this);
+            mainLayout.setOrientation(LinearLayout.VERTICAL);
+            mainLayout.setBackgroundColor(parseColor(colorBackground));
             
-            FrameLayout.LayoutParams keyboardParams = new FrameLayout.LayoutParams(
+            // Emoji row (separate, not affected by touch layer)
+            if (showEmojiRow) {
+                emojiRowView = createEmojiRow();
+                mainLayout.addView(emojiRowView);
+            }
+            
+            // Keyboard view
+            keyboardView = createKeyboardLayout();
+            mainLayout.addView(keyboardView);
+            
+            FrameLayout.LayoutParams mainParams = new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             );
-            keyboardParams.gravity = Gravity.BOTTOM;
-            rootContainer.addView(keyboardView, keyboardParams);
+            mainParams.gravity = Gravity.BOTTOM;
+            rootContainer.addView(mainLayout, mainParams);
             
-            // Add invisible touch layer for gap detection
-            touchLayer = new FrameLayout(this);
-            touchLayer.setBackgroundColor(Color.TRANSPARENT);
-            touchLayer.setLayoutParams(new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            ));
-            touchLayer.setOnTouchListener(new View.OnTouchListener() {
-                @Override
-                public boolean onTouch(View v, MotionEvent event) {
-                    return handleGapTouch(event);
-                }
-            });
-            rootContainer.addView(touchLayer);
-            
-            int emojiRowHeight = showEmojiRow ? dp(40) : 0;
+            // Calculate total height
+            int emojiRowHeight = showEmojiRow ? dp(42) : 0;
             int mainHeight = dp(keyboardHeight);
             int totalHeight = emojiRowHeight + mainHeight + navigationBarHeight;
             
@@ -255,18 +245,9 @@ public class FastKeyboardService extends InputMethodService {
             
             rootContainer.setPadding(0, 0, 0, navigationBarHeight);
             
-            // Update key bounds after layout
-            rootContainer.post(new Runnable() {
-                @Override
-                public void run() {
-                    updateKeyBounds();
-                }
-            });
-            
             return rootContainer;
             
         } catch (Exception e) {
-            Log.e(TAG, "Error creating input view", e);
             return new LinearLayout(this);
         }
     }
@@ -293,9 +274,7 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     private void loadSettings() {
-        if (settings == null) {
-            settings = new KeyboardSettings(this);
-        }
+        if (settings == null) settings = new KeyboardSettings(this);
         
         try {
             colorBackground = settings.getColorBackground();
@@ -317,96 +296,16 @@ public class FastKeyboardService extends InputMethodService {
         } catch (Exception e) {}
     }
     
-    private void updateKeyBounds() {
-        for (KeyInfo info : keyInfoList) {
-            info.updateBounds();
-        }
-    }
-    
-    private boolean handleGapTouch(MotionEvent event) {
-        if (event.getAction() != MotionEvent.ACTION_DOWN) {
-            return false;
-        }
-        
-        float x = event.getRawX();
-        float y = event.getRawY();
-        
-        // Find nearest key
-        KeyInfo nearest = null;
-        float minDistance = Float.MAX_VALUE;
-        
-        for (KeyInfo info : keyInfoList) {
-            float centerX = info.bounds.centerX();
-            float centerY = info.bounds.centerY();
-            float distance = (float) Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
-            
-            if (distance < minDistance) {
-                minDistance = distance;
-                nearest = info;
-            }
-        }
-        
-        // If touch is close enough to a key (within reasonable distance), trigger it
-        if (nearest != null && minDistance < dp(50)) {
-            // Check if touch is NOT directly on a key
-            boolean onKey = false;
-            for (KeyInfo info : keyInfoList) {
-                if (info.bounds.contains((int)x, (int)y)) {
-                    onKey = true;
-                    break;
-                }
-            }
-            
-            if (!onKey) {
-                // Touch was in gap - trigger nearest key
-                doVibrate();
-                processKey(nearest.key);
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    private LinearLayout createKeyboardLayout() {
-        keyInfoList.clear();
-        
-        LinearLayout keyboard = new LinearLayout(this);
-        keyboard.setOrientation(LinearLayout.VERTICAL);
-        keyboard.setBackgroundColor(parseColor(colorBackground));
-        
-        int emojiRowHeight = showEmojiRow ? dp(40) : 0;
-        int mainHeight = dp(keyboardHeight);
-        int totalHeight = emojiRowHeight + mainHeight;
-        
-        keyboard.setLayoutParams(new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            totalHeight
-        ));
-        
-        keyboard.setPadding(dp(2), dp(4), dp(2), dp(4));
-        
-        if (showEmojiRow) {
-            keyboard.addView(createEmojiRow());
-        }
-        
-        String[][] layout = getActiveLayout();
-        for (int i = 0; i < layout.length; i++) {
-            keyboard.addView(createRow(layout[i], i));
-        }
-        
-        return keyboard;
-    }
-    
     private LinearLayout createEmojiRow() {
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER);
         row.setLayoutParams(new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(40)
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(42)
         ));
-        row.setPadding(dp(2), dp(2), dp(2), dp(4));
+        row.setPadding(dp(4), dp(4), dp(4), dp(4));
         row.setBackgroundColor(parseColor(colorKeySpecial));
+        row.setElevation(dp(4)); // Raise above keyboard
         
         String emojiStr = "😀,😂,❤️,👍,🔥,✨,🎉,💯";
         try { emojiStr = settings.getQuickEmojis(); } catch (Exception e) {}
@@ -417,8 +316,17 @@ public class FastKeyboardService extends InputMethodService {
             TextView tv = new TextView(this);
             tv.setText(trimmedEmoji);
             tv.setGravity(Gravity.CENTER);
-            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
-            tv.setLayoutParams(new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+            tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+            
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.MATCH_PARENT, 1f);
+            params.setMargins(dp(2), 0, dp(2), 0);
+            tv.setLayoutParams(params);
+            
+            GradientDrawable bg = new GradientDrawable();
+            bg.setColor(parseColor(colorKeyNormal));
+            bg.setCornerRadius(dp(8));
+            tv.setBackground(bg);
+            
             tv.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
@@ -426,10 +334,31 @@ public class FastKeyboardService extends InputMethodService {
                     typeText(trimmedEmoji);
                 }
             });
+            
             row.addView(tv);
         }
         
         return row;
+    }
+    
+    private LinearLayout createKeyboardLayout() {
+        LinearLayout keyboard = new LinearLayout(this);
+        keyboard.setOrientation(LinearLayout.VERTICAL);
+        keyboard.setBackgroundColor(parseColor(colorBackground));
+        
+        keyboard.setLayoutParams(new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            dp(keyboardHeight)
+        ));
+        
+        keyboard.setPadding(dp(2), dp(4), dp(2), dp(4));
+        
+        String[][] layout = getActiveLayout();
+        for (int i = 0; i < layout.length; i++) {
+            keyboard.addView(createRow(layout[i], i));
+        }
+        
+        return keyboard;
     }
     
     private String[][] getActiveLayout() {
@@ -446,9 +375,9 @@ public class FastKeyboardService extends InputMethodService {
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f
         ));
         
-        int vertPad = dp(1);
+        int vertPad = dp(2);
         if (rowIndex == 1) {
-            row.setPadding(dp(10), vertPad, dp(10), vertPad);
+            row.setPadding(dp(12), vertPad, dp(12), vertPad);
         } else {
             row.setPadding(0, vertPad, 0, vertPad);
         }
@@ -461,40 +390,39 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     private View createKey(final String key) {
-        TextView tv = new TextView(this);
-        tv.setText(getKeyDisplay(key));
+        final TextView tv = new TextView(this);
         tv.setGravity(Gravity.CENTER);
         tv.setTypeface(Typeface.DEFAULT_BOLD);
         
+        // Set key display text
+        String displayText = getKeyDisplay(key);
+        tv.setText(displayText);
+        
+        // Text styling
         int textColor = parseColor(colorText);
         float textSize = isSpecialKey(key) ? 14 : keyTextSize;
         
         if (key.equals("↵")) {
             textColor = Color.WHITE;
             textSize = 18;
-        }
-        
-        // Shift key icons - FIXED
-        if (key.equals("⇧")) {
+        } else if (key.equals("⇧")) {
+            textSize = 20;
             if (isCaps) {
-                tv.setText("⇪"); // Caps lock icon
                 textColor = Color.parseColor("#10b981");
             } else if (isShift) {
-                tv.setText("⬆"); // Shift active icon
                 textColor = Color.parseColor("#3b82f6");
-            } else {
-                tv.setText("⇧"); // Normal shift icon
             }
+        } else if (key.equals("⌫")) {
             textSize = 18;
-        }
-        
-        if (key.equals("⌫") || key.equals("🌐") || key.equals("✨")) {
-            textSize = 16;
+        } else if (key.equals("SPACE")) {
+            textSize = 11;
+            textColor = Color.parseColor("#666666");
         }
         
         tv.setTextColor(textColor);
         tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize);
         
+        // Layout
         float weight = getKeyWeight(key);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, weight
@@ -502,21 +430,69 @@ public class FastKeyboardService extends InputMethodService {
         params.setMargins(dp(keyGap), 0, dp(keyGap), 0);
         tv.setLayoutParams(params);
         
+        // Background
         tv.setBackground(createKeyBackground(key));
         
+        // Touch handling with preview
         tv.setOnTouchListener(new View.OnTouchListener() {
             @Override
             public boolean onTouch(View v, MotionEvent event) {
-                return handleKeyTouch(v, event, key);
+                switch (event.getAction()) {
+                    case MotionEvent.ACTION_DOWN:
+                        v.setAlpha(0.8f);
+                        doVibrate();
+                        
+                        // Show key preview for letter keys
+                        if (!isSpecialKey(key) && key.length() == 1) {
+                            showKeyPreview(v, getKeyDisplay(key));
+                        }
+                        
+                        processKey(key);
+                        
+                        if (key.equals("⌫") || key.equals("SPACE")) {
+                            startRepeat(key);
+                        }
+                        return true;
+                        
+                    case MotionEvent.ACTION_UP:
+                    case MotionEvent.ACTION_CANCEL:
+                        v.setAlpha(1f);
+                        hideKeyPreview();
+                        stopRepeat();
+                        return true;
+                }
+                return false;
             }
         });
+        
         tv.setClickable(true);
-        
-        // Store key info for gap touch detection
-        KeyInfo keyInfo = new KeyInfo(key, tv);
-        keyInfoList.add(keyInfo);
-        
         return tv;
+    }
+    
+    private void showKeyPreview(View anchor, String text) {
+        try {
+            keyPreviewText.setText(text);
+            
+            int[] location = new int[2];
+            anchor.getLocationOnScreen(location);
+            
+            int x = location[0] + (anchor.getWidth() / 2) - dp(30);
+            int y = location[1] - dp(60);
+            
+            if (keyPreviewPopup.isShowing()) {
+                keyPreviewPopup.update(x, y, -1, -1);
+            } else {
+                keyPreviewPopup.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y);
+            }
+        } catch (Exception e) {}
+    }
+    
+    private void hideKeyPreview() {
+        try {
+            if (keyPreviewPopup != null && keyPreviewPopup.isShowing()) {
+                keyPreviewPopup.dismiss();
+            }
+        } catch (Exception e) {}
     }
     
     private String getKeyDisplay(String key) {
@@ -526,7 +502,7 @@ public class FastKeyboardService extends InputMethodService {
             return "⇧";
         }
         if (key.equals("SPACE")) {
-            return "";
+            return "GD Keyboard";
         }
         if (key.length() == 1 && Character.isLetter(key.charAt(0))) {
             return (isShift || isCaps) ? key.toUpperCase() : key.toLowerCase();
@@ -537,14 +513,13 @@ public class FastKeyboardService extends InputMethodService {
     private boolean isSpecialKey(String key) {
         return key.equals("⇧") || key.equals("⌫") || key.equals("↵") || 
                key.equals("SPACE") || key.equals("123") || key.equals("ABC") || 
-               key.equals("#+=") || key.equals("🌐") || key.equals("✨");
+               key.equals("#+=");
     }
     
     private float getKeyWeight(String key) {
-        if (key.equals("SPACE")) return 4.5f;
-        if (key.equals("⇧") || key.equals("⌫")) return 1.4f;
-        if (key.equals("↵") || key.equals("123") || key.equals("ABC") || key.equals("#+=")) return 1.3f;
-        if (key.equals("🌐") || key.equals("✨")) return 0.85f;
+        if (key.equals("SPACE")) return 5f;
+        if (key.equals("⇧") || key.equals("⌫")) return 1.5f;
+        if (key.equals("↵") || key.equals("123") || key.equals("ABC") || key.equals("#+=")) return 1.4f;
         return 1f;
     }
     
@@ -557,47 +532,17 @@ public class FastKeyboardService extends InputMethodService {
         if (key.equals("↵")) {
             color = colorKeyEnter;
         } else if (key.equals("⇧")) {
-            if (isCaps) {
-                color = "#10b981";
-            } else if (isShift) {
-                color = "#3b82f6";
-            } else {
-                color = colorKeySpecial;
-            }
+            if (isCaps) color = "#10b981";
+            else if (isShift) color = "#3b82f6";
+            else color = colorKeySpecial;
         } else if (key.equals("⌫") || key.equals("123") || key.equals("ABC") || key.equals("#+=")) {
             color = colorKeySpecial;
         } else if (key.equals("SPACE")) {
             color = colorKeySpace;
-        } else if (key.equals("🌐") || key.equals("✨")) {
-            color = colorKeySpecial;
         }
         
         bg.setColor(parseColor(color));
         return bg;
-    }
-    
-    private boolean handleKeyTouch(View v, MotionEvent event, String key) {
-        switch (event.getAction()) {
-            case MotionEvent.ACTION_DOWN:
-                v.setAlpha(0.7f);
-                v.setScaleX(0.96f);
-                v.setScaleY(0.96f);
-                doVibrate();
-                processKey(key);
-                if (key.equals("⌫") || key.equals("SPACE")) {
-                    startRepeat(key);
-                }
-                return true;
-                
-            case MotionEvent.ACTION_UP:
-            case MotionEvent.ACTION_CANCEL:
-                v.setAlpha(1f);
-                v.setScaleX(1f);
-                v.setScaleY(1f);
-                stopRepeat();
-                return true;
-        }
-        return false;
     }
     
     private void startRepeat(final String key) {
@@ -665,10 +610,6 @@ public class FastKeyboardService extends InputMethodService {
             isSymbols = true;
             isNumbers = false;
             rebuildKeyboard();
-        } else if (key.equals("🌐")) {
-            openPopup("language");
-        } else if (key.equals("✨")) {
-            openPopup("tools");
         } else {
             String text = key;
             if ((isShift || isCaps) && key.length() == 1 && Character.isLetter(key.charAt(0))) {
@@ -679,48 +620,29 @@ public class FastKeyboardService extends InputMethodService {
         }
     }
     
-    // FIXED: Delete emoji/symbol in one click
     private void deleteCharacter(InputConnection ic) {
         if (ic == null) return;
         
-        // Get text before cursor
         CharSequence beforeCursor = ic.getTextBeforeCursor(2, 0);
         
-        if (beforeCursor != null && beforeCursor.length() > 0) {
+        if (beforeCursor != null && beforeCursor.length() >= 2) {
             String text = beforeCursor.toString();
-            int length = text.length();
+            char lastChar = text.charAt(text.length() - 1);
+            char secondLastChar = text.charAt(text.length() - 2);
             
-            // Check if we need to delete more than 1 code unit
-            if (length >= 2) {
-                // Check if this is a surrogate pair (emoji)
-                char lastChar = text.charAt(length - 1);
-                char secondLastChar = text.charAt(length - 2);
-                
-                if (Character.isLowSurrogate(lastChar) && Character.isSurrogatePair(secondLastChar, lastChar)) {
-                    // It's a surrogate pair (emoji), delete 2 code units
-                    ic.deleteSurroundingText(2, 0);
-                    return;
-                }
-                
-                // Check for variation selectors and ZWJ sequences (complex emojis)
-                if (lastChar == '\uFE0F' || lastChar == '\u200D') {
-                    // Part of emoji sequence, delete more
-                    ic.deleteSurroundingText(2, 0);
-                    return;
-                }
+            // Check for surrogate pair (emoji)
+            if (Character.isLowSurrogate(lastChar) && Character.isSurrogatePair(secondLastChar, lastChar)) {
+                ic.deleteSurroundingText(2, 0);
+                return;
             }
             
-            // Check for single surrogate (shouldn't happen but just in case)
-            if (length >= 1) {
-                char lastChar = text.charAt(length - 1);
-                if (Character.isLowSurrogate(lastChar)) {
-                    ic.deleteSurroundingText(2, 0);
-                    return;
-                }
+            // Check for variation selector
+            if (lastChar == '\uFE0F' || lastChar == '\u200D') {
+                ic.deleteSurroundingText(2, 0);
+                return;
             }
         }
         
-        // Default: delete 1 character
         ic.deleteSurroundingText(1, 0);
     }
     
@@ -739,60 +661,41 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     private void rebuildKeyboard() {
-        if (keyboardView == null || rootContainer == null) return;
+        if (rootContainer == null) return;
         
-        keyInfoList.clear();
-        keyboardView.removeAllViews();
+        rootContainer.removeAllViews();
         
-        keyboardView.setBackgroundColor(parseColor(colorBackground));
-        rootContainer.setBackgroundColor(parseColor(colorBackground));
+        LinearLayout mainLayout = new LinearLayout(this);
+        mainLayout.setOrientation(LinearLayout.VERTICAL);
+        mainLayout.setBackgroundColor(parseColor(colorBackground));
         
-        int emojiRowHeight = showEmojiRow ? dp(40) : 0;
-        int mainHeight = dp(keyboardHeight);
-        int keyboardTotalHeight = emojiRowHeight + mainHeight;
-        
-        ViewGroup.LayoutParams keyboardParams = keyboardView.getLayoutParams();
-        if (keyboardParams != null) {
-            keyboardParams.height = keyboardTotalHeight;
-            keyboardView.setLayoutParams(keyboardParams);
+        if (showEmojiRow) {
+            emojiRowView = createEmojiRow();
+            mainLayout.addView(emojiRowView);
         }
         
-        int containerTotalHeight = keyboardTotalHeight + navigationBarHeight;
+        keyboardView = createKeyboardLayout();
+        mainLayout.addView(keyboardView);
+        
+        FrameLayout.LayoutParams mainParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
+        );
+        mainParams.gravity = Gravity.BOTTOM;
+        rootContainer.addView(mainLayout, mainParams);
+        
+        int emojiRowHeight = showEmojiRow ? dp(42) : 0;
+        int mainHeight = dp(keyboardHeight);
+        int totalHeight = emojiRowHeight + mainHeight + navigationBarHeight;
+        
         ViewGroup.LayoutParams containerParams = rootContainer.getLayoutParams();
         if (containerParams != null) {
-            containerParams.height = containerTotalHeight;
+            containerParams.height = totalHeight;
             rootContainer.setLayoutParams(containerParams);
         }
         
         rootContainer.setPadding(0, 0, 0, navigationBarHeight);
-        
-        keyboardView.setPadding(dp(2), dp(4), dp(2), dp(4));
-        
-        if (showEmojiRow) {
-            keyboardView.addView(createEmojiRow());
-        }
-        
-        String[][] layout = getActiveLayout();
-        for (int i = 0; i < layout.length; i++) {
-            keyboardView.addView(createRow(layout[i], i));
-        }
-        
-        // Update key bounds after layout
-        rootContainer.post(new Runnable() {
-            @Override
-            public void run() {
-                updateKeyBounds();
-            }
-        });
-    }
-    
-    private void openPopup(String mode) {
-        try {
-            Intent intent = new Intent(this, PopupActivity.class);
-            intent.putExtra("mode", mode);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-            startActivity(intent);
-        } catch (Exception e) {}
+        rootContainer.setBackgroundColor(parseColor(colorBackground));
     }
     
     private void doVibrate() {
