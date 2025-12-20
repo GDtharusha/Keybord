@@ -4,16 +4,22 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.LayerDrawable;
 import android.inputmethodservice.InputMethodService;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Vibrator;
 import android.os.VibrationEffect;
+import android.util.Base64;
 import android.util.Log;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -23,9 +29,11 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -86,136 +94,174 @@ public class FastKeyboardService extends InputMethodService {
     private static final Map<String, String> SINHALA_LABELS = new HashMap<>();
     private static final Map<String, String> SINHALA_LABELS_SHIFT = new HashMap<>();
     static {
-        SINHALA_LABELS.put("q", "ෘ"); SINHALA_LABELS.put("w", "ව"); SINHALA_LABELS.put("e", "එ");
-        SINHALA_LABELS.put("r", "ර"); SINHALA_LABELS.put("t", "ට"); SINHALA_LABELS.put("y", "ය");
-        SINHALA_LABELS.put("u", "උ"); SINHALA_LABELS.put("i", "ඉ"); SINHALA_LABELS.put("o", "ඔ");
-        SINHALA_LABELS.put("p", "ප"); SINHALA_LABELS.put("a", "අ"); SINHALA_LABELS.put("s", "ස");
-        SINHALA_LABELS.put("d", "ඩ"); SINHALA_LABELS.put("f", "ෆ"); SINHALA_LABELS.put("g", "ග");
-        SINHALA_LABELS.put("h", "හ"); SINHALA_LABELS.put("j", "ජ"); SINHALA_LABELS.put("k", "ක");
-        SINHALA_LABELS.put("l", "ල"); SINHALA_LABELS.put("z", "ඤ"); SINHALA_LABELS.put("x", "ං");
-        SINHALA_LABELS.put("c", "ච"); SINHALA_LABELS.put("v", "ව"); SINHALA_LABELS.put("b", "බ");
-        SINHALA_LABELS.put("n", "න"); SINHALA_LABELS.put("m", "ම");
+        SINHALA_LABELS.put("a", "අ"); SINHALA_LABELS.put("b", "බ"); SINHALA_LABELS.put("c", "ච");
+        SINHALA_LABELS.put("d", "ඩ"); SINHALA_LABELS.put("e", "එ"); SINHALA_LABELS.put("f", "ෆ");
+        SINHALA_LABELS.put("g", "ග"); SINHALA_LABELS.put("h", "හ"); SINHALA_LABELS.put("i", "ඉ");
+        SINHALA_LABELS.put("j", "ජ"); SINHALA_LABELS.put("k", "ක"); SINHALA_LABELS.put("l", "ල");
+        SINHALA_LABELS.put("m", "ම"); SINHALA_LABELS.put("n", "න"); SINHALA_LABELS.put("o", "ඔ");
+        SINHALA_LABELS.put("p", "ප"); SINHALA_LABELS.put("q", "ෘ"); SINHALA_LABELS.put("r", "ර");
+        SINHALA_LABELS.put("s", "ස"); SINHALA_LABELS.put("t", "ට"); SINHALA_LABELS.put("u", "උ");
+        SINHALA_LABELS.put("v", "ව"); SINHALA_LABELS.put("w", "ව"); SINHALA_LABELS.put("x", "ං");
+        SINHALA_LABELS.put("y", "ය"); SINHALA_LABELS.put("z", "ඤ");
         
-        SINHALA_LABELS_SHIFT.put("q", "ඍ"); SINHALA_LABELS_SHIFT.put("w", "ව"); SINHALA_LABELS_SHIFT.put("e", "ඒ");
-        SINHALA_LABELS_SHIFT.put("r", "ර"); SINHALA_LABELS_SHIFT.put("t", "ඨ"); SINHALA_LABELS_SHIFT.put("y", "ය");
-        SINHALA_LABELS_SHIFT.put("u", "ඌ"); SINHALA_LABELS_SHIFT.put("i", "ඊ"); SINHALA_LABELS_SHIFT.put("o", "ඕ");
-        SINHALA_LABELS_SHIFT.put("p", "ඵ"); SINHALA_LABELS_SHIFT.put("a", "ඇ"); SINHALA_LABELS_SHIFT.put("s", "ෂ");
-        SINHALA_LABELS_SHIFT.put("d", "ඪ"); SINHALA_LABELS_SHIFT.put("f", "ෆ"); SINHALA_LABELS_SHIFT.put("g", "ඝ");
-        SINHALA_LABELS_SHIFT.put("h", "ළ"); SINHALA_LABELS_SHIFT.put("j", "ඣ"); SINHALA_LABELS_SHIFT.put("k", "ඛ");
-        SINHALA_LABELS_SHIFT.put("l", "ළ"); SINHALA_LABELS_SHIFT.put("z", "ඥ"); SINHALA_LABELS_SHIFT.put("x", "ඃ");
-        SINHALA_LABELS_SHIFT.put("c", "ඡ"); SINHALA_LABELS_SHIFT.put("v", "ව"); SINHALA_LABELS_SHIFT.put("b", "භ");
-        SINHALA_LABELS_SHIFT.put("n", "ණ"); SINHALA_LABELS_SHIFT.put("m", "ඹ");
+        SINHALA_LABELS_SHIFT.put("a", "ඇ"); SINHALA_LABELS_SHIFT.put("b", "භ"); SINHALA_LABELS_SHIFT.put("c", "ඡ");
+        SINHALA_LABELS_SHIFT.put("d", "ඪ"); SINHALA_LABELS_SHIFT.put("e", "ඓ"); SINHALA_LABELS_SHIFT.put("f", "ෆ");
+        SINHALA_LABELS_SHIFT.put("g", "ඝ"); SINHALA_LABELS_SHIFT.put("h", "ඃ"); SINHALA_LABELS_SHIFT.put("i", "ඊ");
+        SINHALA_LABELS_SHIFT.put("j", "ඣ"); SINHALA_LABELS_SHIFT.put("k", "ඛ"); SINHALA_LABELS_SHIFT.put("l", "ළ");
+        SINHALA_LABELS_SHIFT.put("m", "ඹ"); SINHALA_LABELS_SHIFT.put("n", "ණ"); SINHALA_LABELS_SHIFT.put("o", "ඕ");
+        SINHALA_LABELS_SHIFT.put("p", "ඵ"); SINHALA_LABELS_SHIFT.put("q", "ඎ"); SINHALA_LABELS_SHIFT.put("r", "ර");
+        SINHALA_LABELS_SHIFT.put("s", "ෂ"); SINHALA_LABELS_SHIFT.put("t", "ඨ"); SINHALA_LABELS_SHIFT.put("u", "ඌ");
+        SINHALA_LABELS_SHIFT.put("v", "ව"); SINHALA_LABELS_SHIFT.put("w", "ව"); SINHALA_LABELS_SHIFT.put("x", "ඞ");
+        SINHALA_LABELS_SHIFT.put("y", "ය"); SINHALA_LABELS_SHIFT.put("z", "ඥ");
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH ENGINE - FIXED MAPPINGS
+    // SINGLISH ENGINE - EXACT MAPPING FROM IMAGE
     // ═══════════════════════════════════════════════════════════════════
     
-    // Consonants → Sinhala base letter
+    // CONSONANTS (Base Letters + Aspirated)
     private static final Map<String, String> CONSONANTS = new HashMap<>();
     static {
-        // 3-letter combinations
-        CONSONANTS.put("ndh", "ඳ"); CONSONANTS.put("nDh", "ඳ");
-        CONSONANTS.put("ngh", "ඟ");
-        CONSONANTS.put("mbh", "ඹ");
-        CONSONANTS.put("thth", "ත්ථ");
+        // Special 3-letter combinations (check first)
+        CONSONANTS.put("zdh", "ඳ");
+        CONSONANTS.put("ruu", "ඎ"); // Special vowel but handled here
+        CONSONANTS.put("Sha", "ෂ");
         
-        // 2-letter combinations
-        CONSONANTS.put("kh", "ඛ"); CONSONANTS.put("Kh", "ඛ");
-        CONSONANTS.put("gh", "ඝ"); CONSONANTS.put("Gh", "ඝ");
-        CONSONANTS.put("ng", "ඟ"); CONSONANTS.put("Ng", "ඟ");
-        CONSONANTS.put("ch", "ච"); CONSONANTS.put("Ch", "ඡ");
-        CONSONANTS.put("jh", "ඣ"); CONSONANTS.put("Jh", "ඣ");
-        CONSONANTS.put("ny", "ඤ"); CONSONANTS.put("Ny", "ඤ");
-        CONSONANTS.put("jn", "ඥ"); CONSONANTS.put("Jn", "ඥ");
-        CONSONANTS.put("gn", "ඥ"); CONSONANTS.put("Gn", "ඥ");
-        CONSONANTS.put("Th", "ඨ"); CONSONANTS.put("th", "ත");
-        CONSONANTS.put("Dh", "ඪ"); CONSONANTS.put("dh", "ද");
-        CONSONANTS.put("DH", "ධ");
-        CONSONANTS.put("nd", "ඳ"); CONSONANTS.put("Nd", "ඳ");
-        CONSONANTS.put("ph", "ඵ"); CONSONANTS.put("Ph", "ඵ");
-        CONSONANTS.put("bh", "භ"); CONSONANTS.put("Bh", "භ");
-        CONSONANTS.put("mb", "ඹ"); CONSONANTS.put("Mb", "ඹ");
-        CONSONANTS.put("sh", "ශ"); CONSONANTS.put("Sh", "ෂ");
-        CONSONANTS.put("SH", "ෂ");
-        CONSONANTS.put("lh", "ළ"); CONSONANTS.put("Lh", "ළ");
-        CONSONANTS.put("LH", "ළ");
+        // 2-letter consonants
+        CONSONANTS.put("kh", "ඛ");
+        CONSONANTS.put("gh", "ඝ");
+        CONSONANTS.put("ch", "ච");
+        CONSONANTS.put("Ch", "ඡ");
+        CONSONANTS.put("jh", "ඣ");
+        CONSONANTS.put("Jh", "ඣ");
+        CONSONANTS.put("th", "ත");
+        CONSONANTS.put("Th", "ථ");
+        CONSONANTS.put("dh", "ද");
+        CONSONANTS.put("Dh", "ධ");
+        CONSONANTS.put("ph", "ඵ");
+        CONSONANTS.put("bh", "භ");
+        CONSONANTS.put("sh", "ශ");
+        CONSONANTS.put("Sh", "ෂ");
+        CONSONANTS.put("zj", "ඦ");
+        CONSONANTS.put("zd", "ඬ");
+        CONSONANTS.put("zq", "ඳ");
+        CONSONANTS.put("zk", "ඤ");
+        CONSONANTS.put("zh", "ඥ");
+        CONSONANTS.put("zb", "ඹ");
+        CONSONANTS.put("zn", "ං");
+        CONSONANTS.put("Lu", "ළු");
+        CONSONANTS.put("ru", "ඍ");
         
         // 1-letter consonants
-        CONSONANTS.put("k", "ක"); CONSONANTS.put("K", "ඛ");
-        CONSONANTS.put("g", "ග"); CONSONANTS.put("G", "ඝ");
-        CONSONANTS.put("c", "ච"); CONSONANTS.put("C", "ඡ");
-        CONSONANTS.put("j", "ජ"); CONSONANTS.put("J", "ඣ");
-        CONSONANTS.put("t", "ට"); CONSONANTS.put("T", "ඨ");
-        CONSONANTS.put("d", "ඩ"); CONSONANTS.put("D", "ඪ");
-        CONSONANTS.put("N", "ණ"); CONSONANTS.put("n", "න");
-        CONSONANTS.put("p", "ප"); CONSONANTS.put("P", "ඵ");
-        CONSONANTS.put("b", "බ"); CONSONANTS.put("B", "භ");
-        CONSONANTS.put("m", "ම"); CONSONANTS.put("M", "ම");
-        CONSONANTS.put("y", "ය"); CONSONANTS.put("Y", "ය");
-        CONSONANTS.put("r", "ර"); CONSONANTS.put("R", "ර");
-        CONSONANTS.put("l", "ල"); CONSONANTS.put("L", "ළ");
-        CONSONANTS.put("w", "ව"); CONSONANTS.put("W", "ව");
-        CONSONANTS.put("v", "ව"); CONSONANTS.put("V", "ව");
-        CONSONANTS.put("s", "ස"); CONSONANTS.put("S", "ෂ");
-        CONSONANTS.put("h", "හ"); CONSONANTS.put("H", "හ");
-        CONSONANTS.put("f", "ෆ"); CONSONANTS.put("F", "ෆ");
-        CONSONANTS.put("z", "ඞ"); CONSONANTS.put("Z", "ඞ");
+        CONSONANTS.put("k", "ක");
+        CONSONANTS.put("K", "ඛ");
+        CONSONANTS.put("g", "ග");
+        CONSONANTS.put("G", "ඝ");
+        CONSONANTS.put("c", "ච");
+        CONSONANTS.put("C", "ඡ");
+        CONSONANTS.put("j", "ජ");
+        CONSONANTS.put("J", "ඣ");
+        CONSONANTS.put("t", "ට");
+        CONSONANTS.put("T", "ඨ");
+        CONSONANTS.put("d", "ඩ");
+        CONSONANTS.put("D", "ඪ");
+        CONSONANTS.put("n", "න");
+        CONSONANTS.put("N", "ණ");
+        CONSONANTS.put("p", "ප");
+        CONSONANTS.put("P", "ඵ");
+        CONSONANTS.put("b", "බ");
+        CONSONANTS.put("B", "ඹ");
+        CONSONANTS.put("m", "ම");
+        CONSONANTS.put("M", "ම");
+        CONSONANTS.put("y", "ය");
+        CONSONANTS.put("Y", "ය");
+        CONSONANTS.put("r", "ර");
+        CONSONANTS.put("R", "ර");
+        CONSONANTS.put("l", "ල");
+        CONSONANTS.put("L", "ළ");
+        CONSONANTS.put("w", "ව");
+        CONSONANTS.put("W", "ව");
+        CONSONANTS.put("v", "ව");
+        CONSONANTS.put("V", "ව");
+        CONSONANTS.put("s", "ස");
+        CONSONANTS.put("S", "ෂ");
+        CONSONANTS.put("h", "හ");
+        CONSONANTS.put("H", "ඃ"); // Visargaya when standalone
+        CONSONANTS.put("f", "ෆ");
+        CONSONANTS.put("F", "ෆ");
+        CONSONANTS.put("x", "ං"); // Binduwa
+        CONSONANTS.put("X", "ඞ"); // Inga
+        CONSONANTS.put("z", "ඤ");
+        CONSONANTS.put("Z", "ඥ");
     }
     
-    // Standalone vowels (word start / after space)
+    // STANDALONE VOWELS (Start of word)
     private static final Map<String, String> VOWELS_STANDALONE = new HashMap<>();
     static {
-        // Long combinations first (3-char)
-        VOWELS_STANDALONE.put("aae", "ඈ"); VOWELS_STANDALONE.put("AAe", "ඈ");
+        // 3-letter combinations
+        VOWELS_STANDALONE.put("ruu", "ඎ");
         
-        // 2-char combinations
-        VOWELS_STANDALONE.put("aa", "ආ"); VOWELS_STANDALONE.put("Aa", "ආ"); VOWELS_STANDALONE.put("AA", "ආ");
-        VOWELS_STANDALONE.put("ae", "ඇ"); VOWELS_STANDALONE.put("Ae", "ඇ"); VOWELS_STANDALONE.put("AE", "ඈ");
-        VOWELS_STANDALONE.put("ii", "ඊ"); VOWELS_STANDALONE.put("II", "ඊ");
-        VOWELS_STANDALONE.put("ee", "ඒ"); VOWELS_STANDALONE.put("EE", "ඒ"); // FIXED: ee = ē not ī
-        VOWELS_STANDALONE.put("uu", "ඌ"); VOWELS_STANDALONE.put("UU", "ඌ");
-        VOWELS_STANDALONE.put("oo", "ඕ"); VOWELS_STANDALONE.put("OO", "ඕ"); // FIXED: oo = ō not ū
-        VOWELS_STANDALONE.put("au", "ඖ"); VOWELS_STANDALONE.put("Au", "ඖ"); VOWELS_STANDALONE.put("AU", "ඖ");
-        VOWELS_STANDALONE.put("ai", "ඓ"); VOWELS_STANDALONE.put("Ai", "ඓ"); VOWELS_STANDALONE.put("AI", "ඓ");
-        VOWELS_STANDALONE.put("ru", "ඍ"); VOWELS_STANDALONE.put("Ru", "ඍ");
+        // 2-letter combinations  
+        VOWELS_STANDALONE.put("aa", "ආ");
+        VOWELS_STANDALONE.put("Aa", "ඈ");
+        VOWELS_STANDALONE.put("AA", "ඈ");
+        VOWELS_STANDALONE.put("ii", "ඊ");
+        VOWELS_STANDALONE.put("uu", "ඌ");
+        VOWELS_STANDALONE.put("ee", "ඒ");
+        VOWELS_STANDALONE.put("ei", "ඒ");
+        VOWELS_STANDALONE.put("oo", "ඕ");
+        VOWELS_STANDALONE.put("oe", "ඕ");
+        VOWELS_STANDALONE.put("au", "ඖ");
+        VOWELS_STANDALONE.put("ru", "ඍ");
         
-        // 1-char vowels
-        VOWELS_STANDALONE.put("a", "අ"); VOWELS_STANDALONE.put("A", "ඇ");
-        VOWELS_STANDALONE.put("i", "ඉ"); VOWELS_STANDALONE.put("I", "ඊ");
-        VOWELS_STANDALONE.put("u", "උ"); VOWELS_STANDALONE.put("U", "ඌ");
-        VOWELS_STANDALONE.put("e", "එ"); VOWELS_STANDALONE.put("E", "ඒ");
-        VOWELS_STANDALONE.put("o", "ඔ"); VOWELS_STANDALONE.put("O", "ඕ");
+        // 1-letter vowels
+        VOWELS_STANDALONE.put("a", "අ");
+        VOWELS_STANDALONE.put("A", "ඇ");
+        VOWELS_STANDALONE.put("i", "ඉ");
+        VOWELS_STANDALONE.put("I", "ඊ");
+        VOWELS_STANDALONE.put("u", "උ");
+        VOWELS_STANDALONE.put("U", "ඌ");
+        VOWELS_STANDALONE.put("e", "එ");
+        VOWELS_STANDALONE.put("E", "ඓ"); // Kombu Deka
+        VOWELS_STANDALONE.put("o", "ඔ");
+        VOWELS_STANDALONE.put("O", "ඕ");
     }
     
-    // Vowel modifiers (after consonant - replaces hal kirima)
+    // VOWEL MODIFIERS (After consonant - Pilla)
     private static final Map<String, String> VOWEL_MODIFIERS = new HashMap<>();
     static {
-        // Long combinations first (3-char)
-        VOWEL_MODIFIERS.put("aae", "ෑ"); VOWEL_MODIFIERS.put("AAe", "ෑ");
+        // 3-letter combinations
+        VOWEL_MODIFIERS.put("ruu", "ෲ");
         
-        // 2-char combinations  
-        VOWEL_MODIFIERS.put("aa", "ා"); VOWEL_MODIFIERS.put("Aa", "ා"); VOWEL_MODIFIERS.put("AA", "ා");
-        VOWEL_MODIFIERS.put("ae", "ැ"); VOWEL_MODIFIERS.put("Ae", "ැ"); VOWEL_MODIFIERS.put("AE", "ෑ");
-        VOWEL_MODIFIERS.put("ii", "ී"); VOWEL_MODIFIERS.put("II", "ී");
-        VOWEL_MODIFIERS.put("ee", "ේ"); VOWEL_MODIFIERS.put("EE", "ේ"); // FIXED: ee = ē not ī
-        VOWEL_MODIFIERS.put("uu", "ූ"); VOWEL_MODIFIERS.put("UU", "ූ");
-        VOWEL_MODIFIERS.put("oo", "ෝ"); VOWEL_MODIFIERS.put("OO", "ෝ"); // FIXED: oo = ō not ū
-        VOWEL_MODIFIERS.put("au", "ෞ"); VOWEL_MODIFIERS.put("Au", "ෞ"); VOWEL_MODIFIERS.put("AU", "ෞ");
-        VOWEL_MODIFIERS.put("ai", "ෛ"); VOWEL_MODIFIERS.put("Ai", "ෛ"); VOWEL_MODIFIERS.put("AI", "ෛ");
-        VOWEL_MODIFIERS.put("ru", "ෘ"); VOWEL_MODIFIERS.put("Ru", "ෘ");
+        // 2-letter combinations
+        VOWEL_MODIFIERS.put("aa", "ා");
+        VOWEL_MODIFIERS.put("Aa", "ෑ");
+        VOWEL_MODIFIERS.put("AA", "ෑ");
+        VOWEL_MODIFIERS.put("ii", "ී");
+        VOWEL_MODIFIERS.put("uu", "ූ");
+        VOWEL_MODIFIERS.put("ee", "ේ");
+        VOWEL_MODIFIERS.put("ei", "ේ");
+        VOWEL_MODIFIERS.put("oo", "ෝ");
+        VOWEL_MODIFIERS.put("oe", "ෝ");
+        VOWEL_MODIFIERS.put("au", "ෞ");
+        VOWEL_MODIFIERS.put("ru", "ෘ");
         
-        // 1-char modifiers
-        VOWEL_MODIFIERS.put("a", ""); // Just remove hal - IMPORTANT
+        // 1-letter modifiers
+        VOWEL_MODIFIERS.put("a", ""); // Just removes hal
         VOWEL_MODIFIERS.put("A", "ැ");
-        VOWEL_MODIFIERS.put("i", "ි"); VOWEL_MODIFIERS.put("I", "ී");
-        VOWEL_MODIFIERS.put("u", "ු"); VOWEL_MODIFIERS.put("U", "ූ");
-        VOWEL_MODIFIERS.put("e", "ෙ"); VOWEL_MODIFIERS.put("E", "ේ");
-        VOWEL_MODIFIERS.put("o", "ො"); VOWEL_MODIFIERS.put("O", "ෝ");
+        VOWEL_MODIFIERS.put("i", "ි");
+        VOWEL_MODIFIERS.put("I", "ී");
+        VOWEL_MODIFIERS.put("u", "ු");
+        VOWEL_MODIFIERS.put("U", "ූ");
+        VOWEL_MODIFIERS.put("e", "ෙ");
+        VOWEL_MODIFIERS.put("E", "ෛ"); // Kombu Deka - CRUCIAL
+        VOWEL_MODIFIERS.put("o", "ො");
+        VOWEL_MODIFIERS.put("O", "ෝ");
     }
     
-    // Characters that can extend
+    // Characters that are vowels
     private static final String VOWEL_CHARS = "aeiouAEIOU";
+    private static final String CONSONANT_CHARS = "bcdfghjklmnpqrstvwxyzBCDFGHJKLMNPQRSTVWXYZ";
     
     // ═══════════════════════════════════════════════════════════════════
     // STATE VARIABLES
@@ -224,7 +270,9 @@ public class FastKeyboardService extends InputMethodService {
     private LinearLayout keyboardContainer;
     private LinearLayout keyboardView;
     private LinearLayout emojiRowView;
+    private FrameLayout keyPreviewContainer;
     private TextView keyPreviewView;
+    private ImageView backgroundImageView;
     private Handler handler;
     private Vibrator vibrator;
     private KeyboardSettings settings;
@@ -240,16 +288,21 @@ public class FastKeyboardService extends InputMethodService {
     private boolean isRepeating = false;
     private Runnable repeatRunnable;
     
-    // Singlish state - Simplified
+    // Singlish state
+    private StringBuilder inputBuffer = new StringBuilder();
     private boolean lastWasConsonantWithHal = false;
+    private long lastKeyTime = 0;
+    private static final long BUFFER_TIMEOUT = 800; // ms
     
     // Touch tracking
     private List<KeyInfo> keyInfoList = new ArrayList<>();
     private KeyInfo currentPressedKey = null;
     private long lastSpecialKeyTime = 0;
-    private static final long SPECIAL_KEY_DEBOUNCE = 200; // ms
+    private static final long SPECIAL_KEY_DEBOUNCE = 250;
     
     private int navigationBarHeight = 0;
+    private int currentKeyWidth = 0;
+    private int currentKeyHeight = 0;
     
     private static class KeyInfo {
         String key;
@@ -372,10 +425,16 @@ public class FastKeyboardService extends InputMethodService {
         rootContainer = new FrameLayout(this);
         rootContainer.setBackgroundColor(parseColor(colorBackground));
         
-        // Keyboard container (emoji row + keyboard)
+        // Background image (if set)
+        backgroundImageView = new ImageView(this);
+        backgroundImageView.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        backgroundImageView.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
+        rootContainer.addView(backgroundImageView);
+        loadBackgroundImage();
+        
+        // Keyboard container
         keyboardContainer = new LinearLayout(this);
         keyboardContainer.setOrientation(LinearLayout.VERTICAL);
-        keyboardContainer.setBackgroundColor(parseColor(colorBackground));
         
         if (showEmojiRow) {
             emojiRowView = createEmojiRow();
@@ -385,56 +444,81 @@ public class FastKeyboardService extends InputMethodService {
         keyboardView = createKeyboard();
         keyboardContainer.addView(keyboardView);
         
-        FrameLayout.LayoutParams kbParams = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        );
+        FrameLayout.LayoutParams kbParams = new FrameLayout.LayoutParams(-1, -2);
         kbParams.gravity = Gravity.BOTTOM;
         rootContainer.addView(keyboardContainer, kbParams);
         
-        // Key Preview View (at top, high elevation)
+        // Key Preview Container (higher z-index)
+        keyPreviewContainer = new FrameLayout(this);
+        keyPreviewContainer.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
+        keyPreviewContainer.setClickable(false);
+        keyPreviewContainer.setFocusable(false);
+        rootContainer.addView(keyPreviewContainer);
+        
+        // Key Preview View
         keyPreviewView = new TextView(this);
-        keyPreviewView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 36);
         keyPreviewView.setTextColor(Color.WHITE);
         keyPreviewView.setTypeface(Typeface.DEFAULT_BOLD);
         keyPreviewView.setGravity(Gravity.CENTER);
-        keyPreviewView.setPadding(dp(28), dp(16), dp(28), dp(16));
         keyPreviewView.setVisibility(View.GONE);
-        keyPreviewView.setElevation(dp(100));
         
         GradientDrawable previewBg = new GradientDrawable();
-        previewBg.setColor(Color.parseColor("#505050"));
-        previewBg.setCornerRadius(dp(14));
+        previewBg.setColor(Color.parseColor("#333333"));
+        previewBg.setCornerRadius(dp(10));
         keyPreviewView.setBackground(previewBg);
         
-        FrameLayout.LayoutParams previewParams = new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
-        );
-        previewParams.gravity = Gravity.TOP | Gravity.START;
-        rootContainer.addView(keyPreviewView, previewParams);
+        keyPreviewContainer.addView(keyPreviewView);
         
-        // Touch layer (covers everything, handles all touches)
+        // Touch layer (topmost)
         View touchLayer = new View(this);
         touchLayer.setBackgroundColor(Color.TRANSPARENT);
-        touchLayer.setLayoutParams(new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.MATCH_PARENT
-        ));
+        touchLayer.setLayoutParams(new FrameLayout.LayoutParams(-1, -1));
         touchLayer.setOnTouchListener(this::handleTouch);
         rootContainer.addView(touchLayer);
         
         // Set total height
         int emojiH = showEmojiRow ? dp(44) : 0;
         int totalHeight = emojiH + dp(keyboardHeight) + navigationBarHeight;
-        rootContainer.setLayoutParams(new ViewGroup.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT, totalHeight));
+        rootContainer.setLayoutParams(new ViewGroup.LayoutParams(-1, totalHeight));
         rootContainer.setPadding(0, 0, 0, navigationBarHeight);
         
         // Update bounds after layout
         rootContainer.post(this::updateAllKeyBounds);
         
         return rootContainer;
+    }
+    
+    private void loadBackgroundImage() {
+        try {
+            String imagePath = settings.getBackgroundImage();
+            if (imagePath != null && !imagePath.isEmpty()) {
+                File imageFile = new File(imagePath);
+                if (imageFile.exists()) {
+                    Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+                    if (bitmap != null) {
+                        backgroundImageView.setImageBitmap(bitmap);
+                        backgroundImageView.setAlpha(0.3f); // Semi-transparent
+                        return;
+                    }
+                }
+                
+                // Try as Base64
+                if (imagePath.startsWith("data:image")) {
+                    String base64 = imagePath.substring(imagePath.indexOf(",") + 1);
+                    byte[] decodedBytes = Base64.decode(base64, Base64.DEFAULT);
+                    Bitmap bitmap = BitmapFactory.decodeByteArray(decodedBytes, 0, decodedBytes.length);
+                    if (bitmap != null) {
+                        backgroundImageView.setImageBitmap(bitmap);
+                        backgroundImageView.setAlpha(0.3f);
+                        return;
+                    }
+                }
+            }
+            backgroundImageView.setImageBitmap(null);
+        } catch (Exception e) {
+            Log.e(TAG, "Error loading background image", e);
+            backgroundImageView.setImageBitmap(null);
+        }
     }
     
     @Override
@@ -444,6 +528,7 @@ public class FastKeyboardService extends InputMethodService {
         isShift = false;
         isCaps = false;
         isSymbols = false;
+        inputBuffer.setLength(0);
         lastWasConsonantWithHal = false;
         
         if (info != null) {
@@ -456,31 +541,43 @@ public class FastKeyboardService extends InputMethodService {
         rebuildKeyboard();
     }
     
+    @Override
+    public void onFinishInputView(boolean finishingInput) {
+        super.onFinishInputView(finishingInput);
+        flushBuffer();
+        hideKeyPreview();
+    }
+    
     // ═══════════════════════════════════════════════════════════════════
     // TOUCH HANDLING
     // ═══════════════════════════════════════════════════════════════════
     private void updateAllKeyBounds() {
         for (KeyInfo ki : keyInfoList) {
             ki.updateBounds();
+            // Store key dimensions for preview
+            if (currentKeyWidth == 0 && ki.view != null) {
+                currentKeyWidth = ki.view.getWidth();
+                currentKeyHeight = ki.view.getHeight();
+            }
         }
     }
     
     private KeyInfo findKeyAt(float x, float y) {
-        // Direct hit check first
+        // Direct hit
         for (KeyInfo ki : keyInfoList) {
             if (ki.containsPoint(x, y)) {
                 return ki;
             }
         }
         
-        // Find nearest key within threshold
+        // Nearest key within threshold
         float minDist = Float.MAX_VALUE;
         KeyInfo nearest = null;
-        float maxDistance = dp(40);
+        float maxDist = dp(35);
         
         for (KeyInfo ki : keyInfoList) {
             float dist = ki.distanceTo(x, y);
-            if (dist < minDist && dist < maxDistance) {
+            if (dist < minDist && dist < maxDist) {
                 minDist = dist;
                 nearest = ki;
             }
@@ -505,7 +602,6 @@ public class FastKeyboardService extends InputMethodService {
             case MotionEvent.ACTION_MOVE:
                 KeyInfo moveKey = findKeyAt(x, y);
                 if (moveKey != null && moveKey != currentPressedKey) {
-                    // Changed key
                     if (currentPressedKey != null) {
                         resetKeyVisual(currentPressedKey);
                     }
@@ -527,16 +623,11 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     private void onKeyDown(KeyInfo ki) {
-        // Visual feedback
         applyPressedVisual(ki);
-        
-        // Vibrate
         vibrate();
-        
-        // Show preview
         showKeyPreview(ki);
         
-        // Process key (with debounce for special keys)
+        // Debounce special keys
         if (isSpecialActionKey(ki.key)) {
             long now = System.currentTimeMillis();
             if (now - lastSpecialKeyTime > SPECIAL_KEY_DEBOUNCE) {
@@ -547,7 +638,6 @@ public class FastKeyboardService extends InputMethodService {
             processKey(ki.key);
         }
         
-        // Start repeat for repeatable keys
         if (ki.key.equals("⌫")) {
             startRepeat(ki.key);
         }
@@ -560,9 +650,9 @@ public class FastKeyboardService extends InputMethodService {
     
     private void applyPressedVisual(KeyInfo ki) {
         if (ki.view != null) {
-            ki.view.setAlpha(0.6f);
-            ki.view.setScaleX(0.93f);
-            ki.view.setScaleY(0.93f);
+            ki.view.setAlpha(0.65f);
+            ki.view.setScaleX(0.94f);
+            ki.view.setScaleY(0.94f);
         }
     }
     
@@ -581,7 +671,7 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // KEY PREVIEW - Using View (not PopupWindow)
+    // KEY PREVIEW - FIXED SIZE AND POSITION
     // ═══════════════════════════════════════════════════════════════════
     private void showKeyPreview(KeyInfo ki) {
         if (isSpecialKey(ki.key)) {
@@ -595,32 +685,34 @@ public class FastKeyboardService extends InputMethodService {
             return;
         }
         
+        // Set text with smaller font
         keyPreviewView.setText(displayText);
+        keyPreviewView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22); // Smaller font
         keyPreviewView.setVisibility(View.VISIBLE);
         
-        // Measure
-        keyPreviewView.measure(
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED),
-            View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-        );
-        
-        int previewW = keyPreviewView.getMeasuredWidth();
-        int previewH = keyPreviewView.getMeasuredHeight();
-        
-        // Position above key
+        // Get key position
         int[] keyLoc = new int[2];
-        ki.view.getLocationInWindow(keyLoc);
+        ki.view.getLocationOnScreen(keyLoc);
         
-        int previewX = keyLoc[0] + (ki.view.getWidth() / 2) - (previewW / 2);
-        int previewY = keyLoc[1] - previewH - dp(8);
+        int keyW = ki.view.getWidth();
+        int keyH = ki.view.getHeight();
         
-        // Keep on screen
+        // Preview size: width = key width, height = 2x key height
+        int previewW = keyW;
+        int previewH = (int)(keyH * 1.8f);
+        
+        // Position: above key, centered, with gap
+        int previewX = keyLoc[0];
+        int previewY = keyLoc[1] - previewH - dp(12); // 12dp gap above key
+        
+        // Adjust for screen bounds
         int screenW = getResources().getDisplayMetrics().widthPixels;
-        if (previewX < dp(4)) previewX = dp(4);
-        if (previewX + previewW > screenW - dp(4)) previewX = screenW - previewW - dp(4);
-        if (previewY < dp(4)) previewY = dp(4);
+        if (previewX < dp(2)) previewX = dp(2);
+        if (previewX + previewW > screenW - dp(2)) previewX = screenW - previewW - dp(2);
+        if (previewY < dp(5)) previewY = dp(5);
         
-        FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) keyPreviewView.getLayoutParams();
+        // Apply layout params
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(previewW, previewH);
         params.leftMargin = previewX;
         params.topMargin = previewY;
         keyPreviewView.setLayoutParams(params);
@@ -637,14 +729,13 @@ public class FastKeyboardService extends InputMethodService {
             return "";
         }
         
-        // For Sinhala mode, show Sinhala character
+        // For Sinhala mode
         if (isSinhalaMode && key.length() == 1 && Character.isLetter(key.charAt(0))) {
             Map<String, String> labels = (isShift || isCaps) ? SINHALA_LABELS_SHIFT : SINHALA_LABELS;
             String sinhala = labels.get(key.toLowerCase());
             if (sinhala != null) return sinhala;
         }
         
-        // For letters, show uppercase if shift
         if (key.length() == 1 && Character.isLetter(key.charAt(0))) {
             return (isShift || isCaps) ? key.toUpperCase() : key.toLowerCase();
         }
@@ -698,7 +789,6 @@ public class FastKeyboardService extends InputMethodService {
         
         LinearLayout kb = new LinearLayout(this);
         kb.setOrientation(LinearLayout.VERTICAL);
-        kb.setBackgroundColor(parseColor(colorBackground));
         kb.setLayoutParams(new LinearLayout.LayoutParams(-1, dp(keyboardHeight)));
         kb.setPadding(dp(3), dp(6), dp(3), dp(6));
         
@@ -796,7 +886,7 @@ public class FastKeyboardService extends InputMethodService {
         keyText.setTextColor(textColor);
         keyText.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize);
         
-        // Add Sinhala label for letter keys
+        // Sinhala label
         if (isSinhalaMode && key.length() == 1 && Character.isLetter(key.charAt(0))) {
             Map<String, String> labels = (isShift || isCaps) ? SINHALA_LABELS_SHIFT : SINHALA_LABELS;
             String sinhalaLabel = labels.get(key.toLowerCase());
@@ -813,7 +903,6 @@ public class FastKeyboardService extends InputMethodService {
             }
         }
         
-        // Layout params
         float weight = getKeyWeight(key);
         LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(0, -1, weight);
         cp.setMargins(dp(keyGap), dp(keyGap), dp(keyGap), dp(keyGap));
@@ -873,40 +962,49 @@ public class FastKeyboardService extends InputMethodService {
         
         switch (key) {
             case "⇧":
+                flushBuffer();
                 handleShift();
                 break;
             case "⌫":
                 handleBackspace(ic);
                 break;
             case "↵":
+                flushBuffer();
                 handleEnter(ic);
                 break;
             case "SPACE":
+                flushBuffer();
                 ic.commitText(" ", 1);
                 lastWasConsonantWithHal = false;
                 autoResetShift();
                 break;
             case "123":
+                flushBuffer();
                 isNumbers = true;
                 isSymbols = false;
                 rebuildKeyboard();
                 break;
             case "ABC":
+                flushBuffer();
                 isNumbers = false;
                 isSymbols = false;
                 rebuildKeyboard();
                 break;
             case "#+=":
+                flushBuffer();
                 isSymbols = true;
                 isNumbers = false;
                 rebuildKeyboard();
                 break;
             case "🌐":
+                flushBuffer();
                 isSinhalaMode = !isSinhalaMode;
+                inputBuffer.setLength(0);
                 lastWasConsonantWithHal = false;
                 rebuildKeyboard();
                 break;
             case "✨":
+                flushBuffer();
                 openPopupWindow();
                 break;
             default:
@@ -927,7 +1025,11 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     private void handleBackspace(InputConnection ic) {
-        ic.deleteSurroundingText(1, 0);
+        if (inputBuffer.length() > 0) {
+            inputBuffer.deleteCharAt(inputBuffer.length() - 1);
+        } else {
+            ic.deleteSurroundingText(1, 0);
+        }
         lastWasConsonantWithHal = false;
     }
     
@@ -949,13 +1051,12 @@ public class FastKeyboardService extends InputMethodService {
     private void handleCharacter(InputConnection ic, String key) {
         String ch = key;
         
-        // Apply shift for letters
         if ((isShift || isCaps) && key.length() == 1 && Character.isLetter(key.charAt(0))) {
             ch = key.toUpperCase();
         }
         
         if (isSinhalaMode && key.length() == 1 && Character.isLetter(key.charAt(0))) {
-            processSinglish(ic, ch);
+            processSinglishRealTime(ic, ch);
         } else {
             ic.commitText(ch, 1);
             lastWasConsonantWithHal = false;
@@ -964,179 +1065,213 @@ public class FastKeyboardService extends InputMethodService {
     }
     
     // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH ENGINE - REAL-TIME, FIXED
+    // SINGLISH ENGINE - REAL-TIME WITH EXACT MAPPING
     // ═══════════════════════════════════════════════════════════════════
-    private void processSinglish(InputConnection ic, String input) {
+    private void processSinglishRealTime(InputConnection ic, String input) {
         char c = input.charAt(0);
-        boolean isVowel = VOWEL_CHARS.indexOf(c) >= 0;
+        inputBuffer.append(c);
+        lastKeyTime = System.currentTimeMillis();
         
-        if (isVowel) {
-            processVowel(ic, input);
-        } else {
-            processConsonant(ic, input);
-        }
-        
+        processBufferRealTime(ic);
         autoResetShift();
     }
     
-    private void processVowel(InputConnection ic, String vowel) {
-        if (lastWasConsonantWithHal) {
-            // After consonant - need to get previous char and check for 2-char combo
-            CharSequence before = ic.getTextBeforeCursor(3, 0);
+    private void processBufferRealTime(InputConnection ic) {
+        while (inputBuffer.length() > 0) {
+            String buffer = inputBuffer.toString();
+            boolean matched = false;
             
-            if (before != null && before.length() >= 1) {
-                // Check if previous vowel + current forms a 2-char combo
-                char prevChar = before.charAt(before.length() - 1);
-                String combo = String.valueOf(prevChar) + vowel;
-                
-                // Check if the character before hal is a vowel modifier being built
-                if (before.length() >= 2) {
-                    char beforeHal = before.charAt(before.length() - 2);
-                    
-                    // Building aa, ee, oo, etc.
-                    if (VOWEL_CHARS.indexOf(beforeHal) < 0) {
-                        // Last was hal (්), check for double vowel
-                        String doubleVowel = vowel.toLowerCase() + vowel.toLowerCase();
-                        if (vowel.equalsIgnoreCase(String.valueOf(prevChar)) && VOWEL_MODIFIERS.containsKey(doubleVowel)) {
-                            // Skip - this is handled by repeated vowel
-                        }
-                    }
-                }
+            // Check if we should wait for more input
+            if (shouldWaitForMore(buffer)) {
+                return;
             }
             
-            // Get what's before cursor (should be consonant + hal)
-            CharSequence textBefore = ic.getTextBeforeCursor(10, 0);
-            if (textBefore != null && textBefore.length() >= 1) {
-                String text = textBefore.toString();
+            // Try to match longest sequence first (3 -> 2 -> 1)
+            for (int len = Math.min(3, buffer.length()); len >= 1 && !matched; len--) {
+                String seq = buffer.substring(0, len);
                 
-                // Check for double vowel (previous char was same vowel)
-                if (text.length() >= 2) {
-                    // Look for pattern: consonant + hal + we need to handle modifier
-                    String lastTwo = text.substring(Math.max(0, text.length() - 2));
-                    
-                    // Check if last char is hal
-                    if (lastTwo.endsWith("්")) {
-                        // Remove hal and add modifier
+                // If after consonant with hal, try vowel modifiers first
+                if (lastWasConsonantWithHal) {
+                    if (VOWEL_MODIFIERS.containsKey(seq)) {
+                        // Apply modifier
+                        String mod = VOWEL_MODIFIERS.get(seq);
                         ic.deleteSurroundingText(1, 0); // Remove hal
-                        
-                        String modifier = VOWEL_MODIFIERS.get(vowel);
-                        if (modifier != null && !modifier.isEmpty()) {
-                            ic.commitText(modifier, 1);
+                        if (mod != null && !mod.isEmpty()) {
+                            ic.commitText(mod, 1);
                         }
-                        // If modifier is empty (for 'a'), just removing hal is enough
-                        
+                        inputBuffer.delete(0, len);
                         lastWasConsonantWithHal = false;
+                        matched = true;
+                        continue;
+                    }
+                    
+                    // Check for Yansaya (y after consonant)
+                    if (seq.equals("y") || seq.equals("Y")) {
+                        ic.commitText("්‍ය", 1); // Yansaya
+                        inputBuffer.delete(0, 1);
+                        lastWasConsonantWithHal = false;
+                        matched = true;
+                        continue;
+                    }
+                    
+                    // Check for Rakaranshaya (r after consonant for conjunct)
+                    if (seq.equals("r") && buffer.length() == 1) {
+                        // Could be rakaranshaya or new 'r' consonant
+                        // Wait for more input
                         return;
                     }
                 }
-            }
-            
-            // Default: remove hal and add modifier
-            ic.deleteSurroundingText(1, 0);
-            String modifier = VOWEL_MODIFIERS.get(vowel);
-            if (modifier != null && !modifier.isEmpty()) {
-                ic.commitText(modifier, 1);
-            }
-            lastWasConsonantWithHal = false;
-            
-        } else {
-            // Standalone vowel or after another vowel
-            CharSequence before = ic.getTextBeforeCursor(2, 0);
-            
-            if (before != null && before.length() >= 1) {
-                char prev = before.charAt(before.length() - 1);
-                String combo = String.valueOf(prev) + vowel;
                 
-                // Check for double vowel combinations (aa, ee, ii, oo, uu)
-                // These should modify the previous standalone vowel
-                if (VOWELS_STANDALONE.containsKey(combo.toLowerCase())) {
-                    // Check if previous was a standalone vowel we can extend
-                    String prevLower = String.valueOf(prev).toLowerCase();
-                    if (VOWEL_CHARS.indexOf(Character.toLowerCase(prev)) >= 0) {
-                        // Previous was a vowel char in English - check for combo
-                        String lowerCombo = combo.toLowerCase();
-                        
-                        // aa -> ආ, ee -> ඒ, ii -> ඊ, oo -> ඕ, uu -> ඌ
-                        if (lowerCombo.equals("aa") || lowerCombo.equals("ee") || 
-                            lowerCombo.equals("ii") || lowerCombo.equals("oo") || 
-                            lowerCombo.equals("uu") || lowerCombo.equals("ae") ||
-                            lowerCombo.equals("ai") || lowerCombo.equals("au")) {
-                            
-                            // Delete previous Sinhala vowel and output combined
+                // Try consonants
+                if (CONSONANTS.containsKey(seq)) {
+                    String consonant = CONSONANTS.get(seq);
+                    
+                    // Special cases that don't take hal
+                    if (seq.equals("x") || seq.equals("X") || seq.equals("H") || 
+                        seq.equals("zn") || seq.equals("Lu")) {
+                        ic.commitText(consonant, 1);
+                        lastWasConsonantWithHal = false;
+                    } else if (seq.equals("ru") || seq.equals("ruu")) {
+                        // These are special vowel-like
+                        if (lastWasConsonantWithHal) {
                             ic.deleteSurroundingText(1, 0);
-                            String combined = VOWELS_STANDALONE.get(combo);
-                            if (combined == null) combined = VOWELS_STANDALONE.get(combo.toLowerCase());
-                            if (combined != null) {
-                                ic.commitText(combined, 1);
-                                return;
-                            }
+                            String mod = VOWEL_MODIFIERS.get(seq);
+                            if (mod != null) ic.commitText(mod, 1);
+                            lastWasConsonantWithHal = false;
+                        } else {
+                            ic.commitText(consonant, 1);
+                            lastWasConsonantWithHal = false;
                         }
+                    } else {
+                        ic.commitText(consonant + "්", 1);
+                        lastWasConsonantWithHal = true;
                     }
+                    inputBuffer.delete(0, len);
+                    matched = true;
+                    continue;
+                }
+                
+                // Try standalone vowels
+                if (!lastWasConsonantWithHal && VOWELS_STANDALONE.containsKey(seq)) {
+                    ic.commitText(VOWELS_STANDALONE.get(seq), 1);
+                    inputBuffer.delete(0, len);
+                    lastWasConsonantWithHal = false;
+                    matched = true;
+                    continue;
                 }
             }
             
-            // Output standalone vowel
-            String standalone = VOWELS_STANDALONE.get(vowel);
-            if (standalone == null) standalone = VOWELS_STANDALONE.get(vowel.toLowerCase());
-            if (standalone != null) {
-                ic.commitText(standalone, 1);
-            } else {
-                ic.commitText(vowel, 1);
+            // No match - output first char as-is if buffer is long enough
+            if (!matched) {
+                if (buffer.length() >= 3) {
+                    ic.commitText(String.valueOf(buffer.charAt(0)), 1);
+                    inputBuffer.deleteCharAt(0);
+                    lastWasConsonantWithHal = false;
+                } else {
+                    // Wait for more input
+                    return;
+                }
             }
         }
     }
     
-    private void processConsonant(InputConnection ic, String consonant) {
-        // Check for 2-char consonant combinations
-        CharSequence before = ic.getTextBeforeCursor(2, 0);
+    private boolean shouldWaitForMore(String buffer) {
+        if (buffer.isEmpty()) return false;
         
-        if (before != null && before.length() >= 1) {
-            char prev = before.charAt(before.length() - 1);
-            String combo = String.valueOf(prev) + consonant;
-            
-            // Check if previous + current forms a 2-char consonant
-            if (CONSONANTS.containsKey(combo)) {
-                // If previous was a consonant with hal, remove it and output combined
-                if (lastWasConsonantWithHal) {
-                    // Remove previous consonant + hal
-                    CharSequence textBefore = ic.getTextBeforeCursor(5, 0);
-                    if (textBefore != null) {
-                        String text = textBefore.toString();
-                        // Find and remove previous consonant output
-                        int halPos = text.lastIndexOf("්");
-                        if (halPos >= 0) {
-                            // Delete from consonant start to end
-                            int toDelete = text.length() - halPos + 1;
-                            if (halPos > 0) toDelete++; // Include the consonant before hal
-                            ic.deleteSurroundingText(Math.min(toDelete, 3), 0);
-                        }
-                    }
-                }
-                
-                // Output combined consonant with hal
-                String combined = CONSONANTS.get(combo);
-                ic.commitText(combined + "්", 1);
-                lastWasConsonantWithHal = true;
-                return;
+        int len = buffer.length();
+        
+        // Single character - might extend
+        if (len == 1) {
+            char c = buffer.charAt(0);
+            // Vowels might double (aa, ee, etc.)
+            if (VOWEL_CHARS.indexOf(c) >= 0) return true;
+            // Consonants might have h, H, etc.
+            if ("kgcjtdpbszKGCJTDPBSZ".indexOf(c) >= 0) return true;
+            // r might be ru, ruu
+            if (c == 'r' || c == 'R') return true;
+            // z combinations
+            if (c == 'z' || c == 'Z') return true;
+            // L might be Lu
+            if (c == 'L') return true;
+        }
+        
+        // Two characters - some might extend to 3
+        if (len == 2) {
+            // ru might become ruu
+            if (buffer.equalsIgnoreCase("ru")) return true;
+            // Check other 3-char possibilities
+            if (buffer.equals("zd") || buffer.equals("Sh") || buffer.equals("sh")) return true;
+            // aa, ee, etc. are complete - don't wait
+            if (buffer.equals("aa") || buffer.equals("ee") || buffer.equals("ii") ||
+                buffer.equals("oo") || buffer.equals("uu") || buffer.equals("Aa") ||
+                buffer.equals("AA") || buffer.equals("ei") || buffer.equals("oe") ||
+                buffer.equals("au")) {
+                return false;
             }
         }
         
-        // Single consonant
-        String sinhala = CONSONANTS.get(consonant);
-        if (sinhala == null) sinhala = CONSONANTS.get(consonant.toLowerCase());
+        return false;
+    }
+    
+    private void flushBuffer() {
+        InputConnection ic = getCurrentInputConnection();
+        if (ic == null || inputBuffer.length() == 0) return;
         
-        if (sinhala != null) {
-            ic.commitText(sinhala + "්", 1);
-            lastWasConsonantWithHal = true;
-        } else {
-            ic.commitText(consonant, 1);
-            lastWasConsonantWithHal = false;
+        // Force process remaining buffer
+        while (inputBuffer.length() > 0) {
+            String buffer = inputBuffer.toString();
+            boolean matched = false;
+            
+            for (int len = Math.min(3, buffer.length()); len >= 1 && !matched; len--) {
+                String seq = buffer.substring(0, len);
+                
+                if (lastWasConsonantWithHal && VOWEL_MODIFIERS.containsKey(seq)) {
+                    String mod = VOWEL_MODIFIERS.get(seq);
+                    ic.deleteSurroundingText(1, 0);
+                    if (mod != null && !mod.isEmpty()) {
+                        ic.commitText(mod, 1);
+                    }
+                    inputBuffer.delete(0, len);
+                    lastWasConsonantWithHal = false;
+                    matched = true;
+                    continue;
+                }
+                
+                if (CONSONANTS.containsKey(seq)) {
+                    String consonant = CONSONANTS.get(seq);
+                    if (seq.equals("x") || seq.equals("X") || seq.equals("H") || seq.equals("zn")) {
+                        ic.commitText(consonant, 1);
+                        lastWasConsonantWithHal = false;
+                    } else {
+                        ic.commitText(consonant + "්", 1);
+                        lastWasConsonantWithHal = true;
+                    }
+                    inputBuffer.delete(0, len);
+                    matched = true;
+                    continue;
+                }
+                
+                if (!lastWasConsonantWithHal && VOWELS_STANDALONE.containsKey(seq)) {
+                    ic.commitText(VOWELS_STANDALONE.get(seq), 1);
+                    inputBuffer.delete(0, len);
+                    lastWasConsonantWithHal = false;
+                    matched = true;
+                    continue;
+                }
+            }
+            
+            if (!matched) {
+                ic.commitText(String.valueOf(buffer.charAt(0)), 1);
+                inputBuffer.deleteCharAt(0);
+                lastWasConsonantWithHal = false;
+            }
         }
     }
     
     private void commitTextDirect(String text) {
         InputConnection ic = getCurrentInputConnection();
         if (ic != null) {
+            flushBuffer();
             ic.commitText(text, 1);
             lastWasConsonantWithHal = false;
         }
@@ -1198,12 +1333,16 @@ public class FastKeyboardService extends InputMethodService {
         keyInfoList.clear();
         
         // Remove old keyboard container
-        rootContainer.removeView(keyboardContainer);
+        if (keyboardContainer != null) {
+            rootContainer.removeView(keyboardContainer);
+        }
+        
+        // Reload background image
+        loadBackgroundImage();
         
         // Create new keyboard container
         keyboardContainer = new LinearLayout(this);
         keyboardContainer.setOrientation(LinearLayout.VERTICAL);
-        keyboardContainer.setBackgroundColor(parseColor(colorBackground));
         
         if (showEmojiRow) {
             emojiRowView = createEmojiRow();
@@ -1213,10 +1352,9 @@ public class FastKeyboardService extends InputMethodService {
         keyboardView = createKeyboard();
         keyboardContainer.addView(keyboardView);
         
-        // Add at index 0 (behind preview and touch layer)
         FrameLayout.LayoutParams kbParams = new FrameLayout.LayoutParams(-1, -2);
         kbParams.gravity = Gravity.BOTTOM;
-        rootContainer.addView(keyboardContainer, 0, kbParams);
+        rootContainer.addView(keyboardContainer, 1, kbParams); // Index 1 (after bg image)
         
         // Update height
         int emojiH = showEmojiRow ? dp(44) : 0;
@@ -1227,7 +1365,6 @@ public class FastKeyboardService extends InputMethodService {
             rootContainer.setLayoutParams(rp);
         }
         rootContainer.setPadding(0, 0, 0, navigationBarHeight);
-        rootContainer.setBackgroundColor(parseColor(colorBackground));
         
         rootContainer.post(this::updateAllKeyBounds);
     }

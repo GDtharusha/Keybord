@@ -1,23 +1,28 @@
 package com.keybord.app;
 
+import android.app.Activity;
 import android.content.Intent;
+import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.JavascriptInterface;
-import android.webkit.WebView;
-import android.widget.Toast;
 
 import com.getcapacitor.BridgeActivity;
 
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.InputStream;
 import java.util.List;
 
 public class MainActivity extends BridgeActivity {
     
     private static final String TAG = "MainActivity";
+    private static final int PICK_IMAGE_REQUEST = 1001;
     private KeyboardSettings settings;
     
     @Override
@@ -28,6 +33,64 @@ public class MainActivity extends BridgeActivity {
         
         getBridge().getWebView().addJavascriptInterface(new NativeSettingsBridge(), "NativeSettings");
         Log.d(TAG, "NativeSettings bridge added");
+    }
+    
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        
+        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK && data != null) {
+            try {
+                Uri imageUri = data.getData();
+                if (imageUri != null) {
+                    // Copy image to app's internal storage
+                    String savedPath = saveImageToInternal(imageUri);
+                    if (savedPath != null) {
+                        settings.setBackgroundImage(savedPath);
+                        notifyKeyboard();
+                        
+                        // Notify WebView
+                        runOnUiThread(() -> {
+                            getBridge().getWebView().evaluateJavascript(
+                                "if(typeof showToast === 'function') showToast('✓ Background image set!');", 
+                                null
+                            );
+                        });
+                    }
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error processing image", e);
+            }
+        }
+    }
+    
+    private String saveImageToInternal(Uri uri) {
+        try {
+            InputStream inputStream = getContentResolver().openInputStream(uri);
+            if (inputStream == null) return null;
+            
+            File outputDir = new File(getFilesDir(), "keyboard_bg");
+            if (!outputDir.exists()) {
+                outputDir.mkdirs();
+            }
+            
+            File outputFile = new File(outputDir, "background.jpg");
+            FileOutputStream outputStream = new FileOutputStream(outputFile);
+            
+            byte[] buffer = new byte[4096];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            
+            inputStream.close();
+            outputStream.close();
+            
+            return outputFile.getAbsolutePath();
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving image", e);
+            return null;
+        }
     }
     
     public class NativeSettingsBridge {
@@ -150,6 +213,9 @@ public class MainActivity extends BridgeActivity {
                     case "key_gap":
                         settings.setKeyGap(value);
                         break;
+                    case "button_height":
+                        settings.setButtonHeight(value);
+                        break;
                     default:
                         android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
                         prefs.edit().putInt(key, value).apply();
@@ -172,6 +238,8 @@ public class MainActivity extends BridgeActivity {
                         return settings.getKeyTextSize();
                     case "key_gap":
                         return settings.getKeyGap();
+                    case "button_height":
+                        return settings.getButtonHeight();
                     default:
                         android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
                         return prefs.getInt(key, defaultValue);
@@ -181,39 +249,17 @@ public class MainActivity extends BridgeActivity {
         }
         
         @JavascriptInterface
-        public void saveSetting(String key, String value) {
-            try {
-                android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
-                prefs.edit().putString(key, value).apply();
-                notifyKeyboard();
-            } catch (Exception e) {}
-        }
-        
-        @JavascriptInterface
-        public String getSetting(String key, String defaultValue) {
-            try {
-                android.content.SharedPreferences prefs = getSharedPreferences("keyboard_prefs", MODE_PRIVATE);
-                return prefs.getString(key, defaultValue);
-            } catch (Exception e) {}
-            return defaultValue;
-        }
-        
-        @JavascriptInterface
         public void setBackgroundColor(String color) {
             settings.setColorBackground(color);
-            // Also update key colors based on background
             if (color.equals("#000000") || color.startsWith("#0") || color.startsWith("#1")) {
-                // Dark background
                 settings.setColorKey("#1a1a1a");
                 settings.setColorKeySpecial("#0d0d0d");
                 settings.setColorKeySpace("#1a1a1a");
             } else if (color.equals("#f5f5f5") || color.equals("#ffffff") || color.startsWith("#f") || color.startsWith("#e")) {
-                // Light background
                 settings.setColorKey("#ffffff");
                 settings.setColorKeySpecial("#e0e0e0");
                 settings.setColorKeySpace("#ffffff");
             } else {
-                // Custom - slightly lighter keys
                 settings.setColorKey(lightenColor(color, 0.1f));
                 settings.setColorKeySpecial(darkenColor(color, 0.1f));
                 settings.setColorKeySpace(lightenColor(color, 0.1f));
@@ -228,10 +274,25 @@ public class MainActivity extends BridgeActivity {
         }
         
         @JavascriptInterface
+        public void setKeyBackgroundColor(String color) {
+            settings.setColorKey(color);
+            try {
+                int c = android.graphics.Color.parseColor(color);
+                int r = android.graphics.Color.red(c);
+                int g = android.graphics.Color.green(c);
+                int b = android.graphics.Color.blue(c);
+                String special = String.format("#%02x%02x%02x", 
+                    Math.max(0, r - 30), Math.max(0, g - 30), Math.max(0, b - 30));
+                settings.setColorKeySpecial(special);
+                settings.setColorKeySpace(color);
+            } catch (Exception e) {}
+            notifyKeyboard();
+        }
+        
+        @JavascriptInterface
         public void showFloatingWindow() {
             try {
                 Intent intent = new Intent(MainActivity.this, PopupActivity.class);
-                intent.putExtra("mode", "tools");
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
                 startActivity(intent);
             } catch (Exception e) {}
@@ -242,40 +303,30 @@ public class MainActivity extends BridgeActivity {
             settings.resetToDefaults();
             notifyKeyboard();
         }
-
-        @JavascriptInterface
-        public void setKeyBackgroundColor(String color) {
-            settings.setColorKey(color);
-            // Also update special key colors
-            try {
-                int c = android.graphics.Color.parseColor(color);
-                int r = android.graphics.Color.red(c);
-                int g = android.graphics.Color.green(c);
-                int b = android.graphics.Color.blue(c);
-                // Darken for special keys
-                String special = String.format("#%02x%02x%02x", 
-                    Math.max(0, r - 30), Math.max(0, g - 30), Math.max(0, b - 30));
-                settings.setColorKeySpecial(special);
-                settings.setColorKeySpace(color);
-            } catch (Exception e) {}
-            notifyKeyboard();
-        }
-
+        
         @JavascriptInterface
         public void selectBackgroundImage() {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
+            runOnUiThread(() -> {
+                try {
                     Intent intent = new Intent(Intent.ACTION_PICK);
                     intent.setType("image/*");
-                    startActivityForResult(intent, 1001);
+                    startActivityForResult(intent, PICK_IMAGE_REQUEST);
+                } catch (Exception e) {
+                    Log.e(TAG, "Error opening image picker", e);
                 }
             });
         }
-
+        
         @JavascriptInterface
         public void clearBackgroundImage() {
             settings.setBackgroundImage("");
+            // Delete file if exists
+            try {
+                File bgFile = new File(getFilesDir(), "keyboard_bg/background.jpg");
+                if (bgFile.exists()) {
+                    bgFile.delete();
+                }
+            } catch (Exception e) {}
             notifyKeyboard();
         }
         
