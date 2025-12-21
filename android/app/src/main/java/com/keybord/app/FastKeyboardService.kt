@@ -16,6 +16,7 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -30,22 +31,56 @@ import android.widget.PopupWindow
 import android.widget.TextView
 import java.io.File
 
+/**
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * FAST KEYBOARD SERVICE
+ * ═══════════════════════════════════════════════════════════════════════════════
+ * 
+ * Responsibilities:
+ * 1. Keyboard UI Rendering & Lifecycle
+ * 2. Singlish-to-Sinhala Transliteration Engine
+ * 3. Touch Handling & Key Processing
+ * 4. BroadcastReceiver for API Commands (Loosely Coupled)
+ * 
+ * This class does NOT know about KeyboardAPI.kt
+ * It only listens for standard Android broadcasts.
+ * 
+ * ═══════════════════════════════════════════════════════════════════════════════
+ */
 class FastKeyboardService : InputMethodService() {
 
     companion object {
         private const val TAG = "FastKeyboard"
+        
+        // Sinhala Special Characters
         private const val HAL = "්"
         private const val YANSAYA = "්‍ය"
         private const val RAKARANSAYA = "්‍ර"
         
-        // Debounce time in milliseconds
+        // API Broadcast Actions
+        const val ACTION_API_EVENT = "com.keybord.app.API_EVENT"
+        const val EXTRA_COMMAND = "command"
+        const val EXTRA_DATA = "data"
+        const val EXTRA_COUNT = "count"
+        
+        // API Commands
+        const val CMD_TYPE_TEXT = "TYPE_TEXT"
+        const val CMD_BACKSPACE = "BACKSPACE"
+        const val CMD_ENTER = "ENTER"
+        const val CMD_CURSOR_LEFT = "CURSOR_LEFT"
+        const val CMD_CURSOR_RIGHT = "CURSOR_RIGHT"
+        const val CMD_CLEAR_ALL = "CLEAR_ALL"
+        const val CMD_VIBRATE = "VIBRATE"
+        const val CMD_HIDE_KEYBOARD = "HIDE_KEYBOARD"
+        
+        // Debounce
         private const val DEBOUNCE_TIME = 100L
         private const val ACTION_KEY_DEBOUNCE = 250L
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // DATA CLASSES
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     data class KeyInfo(
         val key: String,
@@ -67,9 +102,9 @@ class FastKeyboardService : InputMethodService() {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SETTINGS
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // THEME & SETTINGS
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private var colorBackground = "#000000"
     private var colorKeyNormal = "#1a1a1a"
@@ -89,9 +124,9 @@ class FastKeyboardService : InputMethodService() {
     private var longPressDelay = 300
     private var repeatInterval = 30
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // KEYBOARD LAYOUTS
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private val layoutLetters = arrayOf(
         arrayOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
@@ -114,15 +149,15 @@ class FastKeyboardService : InputMethodService() {
         arrayOf("ABC", "🌐", ",", "SPACE", ".", "✨", "↵")
     )
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SINHALA KEY LABELS
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SINHALA KEY LABELS (For keyboard display)
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private val sinhalaLabels = mapOf(
         "a" to "අ", "b" to "බ", "c" to "ච", "d" to "ඩ", "e" to "එ",
         "f" to "ෆ", "g" to "ග", "h" to "හ", "i" to "ඉ", "j" to "ජ",
         "k" to "ක", "l" to "ල", "m" to "ම", "n" to "න", "o" to "ඔ",
-        "p" to "ප", "q" to "ෘ", "r" to "ර", "s" to "ස", "t" to "ට",
+        "p" to "ප", "q" to "ක", "r" to "ර", "s" to "ස", "t" to "ට",
         "u" to "උ", "v" to "ව", "w" to "ව", "x" to "ං", "y" to "ය",
         "z" to "ඤ"
     )
@@ -131,137 +166,224 @@ class FastKeyboardService : InputMethodService() {
         "a" to "ඇ", "b" to "භ", "c" to "ඡ", "d" to "ඪ", "e" to "ඓ",
         "f" to "ෆ", "g" to "ඝ", "h" to "ඃ", "i" to "ඊ", "j" to "ඣ",
         "k" to "ඛ", "l" to "ළ", "m" to "ඹ", "n" to "ණ", "o" to "ඕ",
-        "p" to "ඵ", "q" to "ඎ", "r" to "ර", "s" to "ෂ", "t" to "ඨ",
+        "p" to "ඵ", "q" to "ඛ", "r" to "ර", "s" to "ෂ", "t" to "ඨ",
         "u" to "ඌ", "v" to "ව", "w" to "ව", "x" to "ඞ", "y" to "ය",
         "z" to "ඥ"
     )
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH MAPPINGS - STRICT PRIORITY ORDER
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SINGLISH TRANSLITERATION ENGINE - CORRECT MAPPINGS
+    // ═══════════════════════════════════════════════════════════════════════════
     
-    // PRIORITY 1: Special Z-Combinations (4-5 letters) - CHECK FIRST!
+    /**
+     * PRIORITY ORDER FOR MATCHING:
+     * 1. Special Z-Combinations (4-5 letters) - HIGHEST
+     * 2. 3-Letter Combinations
+     * 3. 2-Letter Combinations  
+     * 4. 1-Letter Combinations - LOWEST
+     * 
+     * Greedy matching: Always try longest match first
+     */
+    
+    // PRIORITY 1: Special Z-Combinations & Long Sequences
     private val consonantsSpecial = mapOf(
-        "zdha" to "ඳ",    // MUST use zdha, NOT ndha
-        "zga" to "ඟ",
-        "zda" to "ඬ",
-        "zja" to "ඦ",
-        "zka" to "ඤ",
-        "zha" to "ඥ",
-        "thth" to "ත්ථ",
-        "ksha" to "ක්ෂ",
+        // Sanyaka Letters (Z-based)
+        "zdha" to "ඳ",      // ඳ - Sanyaka dha
+        "zja" to "ඦ",       // ඦ - Sanyaka ja  
+        "zda" to "ඬ",       // ඬ - Sanyaka da
+        "zdh" to "ඳ",       // ඳ - Alternative
+        "zqa" to "ඳ",       // ඳ - Alternative
+        "zka" to "ඤ",       // ඤ - Sanyaka ka (Taaluja Naasikya)
+        "zha" to "ඥ",       // ඥ - Sanyaka ha (Muurdhaja Naasikya)
+        "zga" to "ඟ",       // ඟ - Sanyaka ga
+        
+        // Special Combinations
+        "ksha" to "ක්ෂ",    // Ksha
         "ksh" to "ක්ෂ",
-        "Ksh" to "ක්ෂ"
+        "thth" to "ත්ථ",
+        "nDh" to "ඳ",       // Alternative for ඳ
+        "ngh" to "ඟ"        // Alternative for ඟ
     )
     
     // PRIORITY 2: 3-Letter Consonants
     private val consonants3 = mapOf(
-        "nDh" to "ඳ",
-        "ngh" to "ඟ",
-        "Sha" to "ෂ"
+        "Sha" to "ෂ",       // ෂ - Muurdhaja Ushma (capital S + ha)
+        "Cha" to "ඡ",       // ඡ - Aspirated cha
+        "Tha" to "ථ",       // ථ - Aspirated tha (dental)
+        "Dha" to "ධ",       // ධ - Aspirated dha (dental)
+        "kha" to "ඛ",       // ඛ - Aspirated ka
+        "gha" to "ඝ",       // ඝ - Aspirated ga
+        "pha" to "ඵ",       // ඵ - Aspirated pa
+        "bha" to "භ",       // භ - Aspirated ba
+        "sha" to "ශ",       // ශ - Taaluja Ushma
+        "ruu" to "ඎ"        // ඎ - Deergha Gayanukitha (standalone)
     )
     
     // PRIORITY 3: 2-Letter Consonants
     private val consonants2 = mapOf(
-        "th" to "ත", "Th" to "ථ",
-        "dh" to "ද", "Dh" to "ධ",
-        "sh" to "ශ", "Sh" to "ෂ",
-        "ch" to "ච", "Ch" to "ඡ",
-        "kh" to "ඛ", "Kh" to "ඛ",
-        "gh" to "ඝ", "Gh" to "ඝ",
-        "ph" to "ඵ", "Ph" to "ඵ",
-        "bh" to "භ", "Bh" to "භ",
-        "jh" to "ඣ", "Jh" to "ඣ",
-        "mb" to "ඹ", "Mb" to "ඹ",
-        "ng" to "ඟ", "Ng" to "ඟ",
-        "nd" to "ඳ", "Nd" to "ඳ",
-        "ny" to "ඤ", "Ny" to "ඤ",
-        "kn" to "ඤ", "Kn" to "ඤ",
-        "gn" to "ඥ", "Gn" to "ඥ",
-        "zk" to "ඤ", "zh" to "ඥ",
-        "zn" to "ං", "zb" to "ඹ",
-        "Lu" to "ළු"
+        // Aspirated Consonants (Mahaprana)
+        "kh" to "ඛ",        // ඛ
+        "gh" to "ඝ",        // ඝ
+        "ch" to "ච",        // ච - Basic cha
+        "Ch" to "ඡ",        // ඡ - Aspirated cha
+        "jh" to "ඣ",        // ඣ - Aspirated ja (but rarely used)
+        "Ja" to "ඣ",        // ඣ - Alternative
+        "th" to "ත",        // ත - Dental ta
+        "Th" to "ථ",        // ථ - Aspirated dental ta
+        "dh" to "ද",        // ද - Dental da
+        "Dh" to "ධ",        // ධ - Aspirated dental da
+        "ph" to "ඵ",        // ඵ - Aspirated pa
+        "bh" to "භ",        // භ - Aspirated ba
+        "sh" to "ශ",        // ශ - Taaluja ushma
+        "Sh" to "ෂ",        // ෂ - Muurdhaja ushma
+        
+        // Retroflex Consonants
+        "Ta" to "ඨ",        // ඨ - Aspirated retroflex ta
+        "Da" to "ඪ",        // ඪ - Aspirated retroflex da
+        "Na" to "ණ",        // ණ - Retroflex na
+        "La" to "ළ",        // ළ - Retroflex la
+        "Lu" to "ළු",       // ළු - Retroflex la + u
+        
+        // Sanyaka Shortcuts
+        "Ba" to "ඹ",        // ඹ - Amba (sanyaka ba)
+        "zb" to "ඹ",        // ඹ - Alternative
+        "zn" to "ං",        // ං - Binduwa
+        
+        // Vowel-like
+        "aa" to "ආ",        // ආ - Long a (standalone)
+        "Aa" to "ඈ",        // ඈ - Long ae
+        "AA" to "ඈ",        // ඈ - Alternative
+        "ae" to "ඇ",        // ඇ - Short ae
+        "Ae" to "ඈ",        // ඈ - Long ae
+        "ii" to "ඊ",        // ඊ - Long i
+        "uu" to "ඌ",        // ඌ - Long u
+        "ee" to "ඒ",        // ඒ - Long e
+        "ei" to "ඒ",        // ඒ - Alternative
+        "oo" to "ඕ",        // ඕ - Long o
+        "oe" to "ඕ",        // ඕ - Alternative
+        "au" to "ඖ",        // ඖ - Au
+        "ru" to "ඍ",        // ඍ - Gayanukitha
+        "ai" to "ඓ"         // ඓ - Ai
     )
     
     // PRIORITY 4: 1-Letter Consonants
     private val consonants1 = mapOf(
-        "k" to "ක", "K" to "ඛ",
-        "g" to "ග", "G" to "ඝ",
-        "c" to "ච", "C" to "ඡ",
-        "j" to "ජ", "J" to "ඣ",
-        "t" to "ට", "T" to "ඨ",
-        "d" to "ඩ", "D" to "ඪ",
-        "n" to "න", "N" to "ණ",
-        "p" to "ප", "P" to "ඵ",
-        "b" to "බ", "B" to "භ",
-        "m" to "ම", "M" to "ම",
-        "y" to "ය", "Y" to "ය",
-        "r" to "ර", "R" to "ර",
-        "l" to "ල", "L" to "ළ",
-        "w" to "ව", "W" to "ව",
-        "v" to "ව", "V" to "ව",
-        "s" to "ස", "S" to "ෂ",
-        "h" to "හ",
-        "f" to "ෆ", "F" to "ෆ",
-        "z" to "ඤ", "Z" to "ඥ",
-        "q" to "ක", "Q" to "ඛ"
+        "k" to "ක",         // ක
+        "g" to "ග",         // ග
+        "c" to "ච",         // ච (same as ch)
+        "j" to "ජ",         // ජ
+        "t" to "ට",         // ට - Retroflex ta
+        "d" to "ඩ",         // ඩ - Retroflex da  
+        "n" to "න",         // න - Dental na
+        "p" to "ප",         // ප
+        "b" to "බ",         // බ
+        "m" to "ම",         // ම
+        "y" to "ය",         // ය
+        "r" to "ර",         // ර
+        "l" to "ල",         // ල - Dental la
+        "w" to "ව",         // ව
+        "v" to "ව",         // ව (same as w)
+        "s" to "ස",         // ස
+        "h" to "හ",         // හ
+        "f" to "ෆ",         // ෆ
+        "z" to "ඤ",         // ඤ (fallback for z)
+        "q" to "ක",         // ක (same as k)
+        
+        // Capital variations
+        "K" to "ඛ",         // ඛ - Aspirated
+        "G" to "ඝ",         // ඝ - Aspirated
+        "C" to "ඡ",         // ඡ - Aspirated
+        "J" to "ඣ",         // ඣ - Aspirated
+        "T" to "ඨ",         // ඨ - Retroflex aspirated
+        "D" to "ඪ",         // ඪ - Retroflex aspirated
+        "N" to "ණ",         // ණ - Retroflex na
+        "P" to "ඵ",         // ඵ - Aspirated pa
+        "B" to "භ",         // භ - Aspirated ba (or ඹ based on context)
+        "L" to "ළ",         // ළ - Retroflex la
+        "S" to "ෂ",         // ෂ - Muurdhaja ushma
+        "F" to "ෆ",         // ෆ
+        "Z" to "ඥ",         // ඥ
+        "Q" to "ඛ"          // ඛ - Same as K
     )
     
-    // Special consonants (no hal)
+    // Special consonants that don't take hal
     private val specialConsonants = mapOf(
-        "x" to "ං",
-        "X" to "ඞ",
-        "H" to "ඃ"
+        "x" to "ං",         // ං - Binduwa (Anusvara)
+        "X" to "ඞ",         // ඞ - Kantaja Naasikya (Inga)
+        "H" to "ඃ"          // ඃ - Visargaya
     )
     
-    // Standalone Vowels
+    // Standalone Vowels (Used at start of word or after vowel)
     private val vowelsStandalone = mapOf(
         // 3-letter
-        "ruu" to "ඎ", "Ruu" to "ඎ",
-        // 2-letter
-        "aa" to "ආ", "Aa" to "ඈ", "AA" to "ඈ",
-        "ae" to "ඇ", "Ae" to "ඈ",
-        "ii" to "ඊ", "II" to "ඊ",
-        "ee" to "ඒ", "ei" to "ඒ",
-        "uu" to "ඌ", "UU" to "ඌ",
-        "oo" to "ඕ", "oe" to "ඕ",
-        "au" to "ඖ", "Au" to "ඖ",
-        "ai" to "ඓ", "Ai" to "ඓ",
-        "ru" to "ඍ", "Ru" to "ඍ",
+        "ruu" to "ඎ",       // ඎ - Deergha Gayanukitha
+        
+        // 2-letter  
+        "aa" to "ආ",        // ආ
+        "Aa" to "ඈ",        // ඈ
+        "AA" to "ඈ",        // ඈ
+        "ae" to "ඇ",        // ඇ
+        "Ae" to "ඈ",        // ඈ
+        "ii" to "ඊ",        // ඊ
+        "uu" to "ඌ",        // ඌ
+        "ee" to "ඒ",        // ඒ
+        "ei" to "ඒ",        // ඒ
+        "oo" to "ඕ",        // ඕ
+        "oe" to "ඕ",        // ඕ
+        "au" to "ඖ",        // ඖ
+        "ai" to "ඓ",        // ඓ
+        "ru" to "ඍ",        // ඍ
+        
         // 1-letter
-        "a" to "අ", "A" to "ඇ",
-        "i" to "ඉ", "I" to "ඊ",
-        "u" to "උ", "U" to "ඌ",
-        "e" to "එ", "E" to "ඓ",
-        "o" to "ඔ", "O" to "ඕ"
+        "a" to "අ",         // අ
+        "A" to "ඇ",         // ඇ
+        "i" to "ඉ",         // ඉ
+        "I" to "ඊ",         // ඊ (long i)
+        "u" to "උ",         // උ
+        "U" to "ඌ",         // ඌ (long u)
+        "e" to "එ",         // එ
+        "E" to "ඓ",         // ඓ (ai sound) - IMPORTANT FIX
+        "o" to "ඔ",         // ඔ
+        "O" to "ඕ"          // ඕ (long o)
     )
     
-    // Vowel Modifiers (Pilla)
+    // Vowel Modifiers (Pilla) - Applied after consonant with hal
     private val vowelModifiers = mapOf(
         // 3-letter
-        "ruu" to "ෲ", "Ruu" to "ෲ",
+        "ruu" to "ෲ",       // ෲ - Deergha Gayanukitha pilla
+        
         // 2-letter
-        "aa" to "ා", "Aa" to "ෑ", "AA" to "ෑ",
-        "ae" to "ැ", "Ae" to "ෑ",
-        "ii" to "ී", "II" to "ී",
-        "ee" to "ේ", "ei" to "ේ",
-        "uu" to "ූ", "UU" to "ූ",
-        "oo" to "ෝ", "oe" to "ෝ",
-        "au" to "ෞ", "Au" to "ෞ",
-        "ai" to "ෛ", "Ai" to "ෛ",
-        "ru" to "ෘ", "Ru" to "ෘ",
+        "aa" to "ා",        // ා
+        "Aa" to "ෑ",        // ෑ
+        "AA" to "ෑ",        // ෑ
+        "ae" to "ැ",        // ැ
+        "Ae" to "ෑ",        // ෑ
+        "ii" to "ී",        // ී
+        "uu" to "ූ",        // ූ
+        "ee" to "ේ",        // ේ
+        "ei" to "ේ",        // ේ
+        "oo" to "ෝ",        // ෝ
+        "oe" to "ෝ",        // ෝ
+        "au" to "ෞ",        // ෞ
+        "ai" to "ෛ",        // ෛ
+        "ru" to "ෘ",        // ෘ
+        
         // 1-letter
-        "a" to "",      // Just removes hal
-        "A" to "ැ",
-        "i" to "ි", "I" to "ී",
-        "u" to "ු", "U" to "ූ",
-        "e" to "ෙ", "E" to "ෛ",
-        "o" to "ො", "O" to "ෝ"
+        "a" to "",          // Just removes hal (ka = ක)
+        "A" to "ැ",         // ැ (kA = කැ)
+        "i" to "ි",         // ි
+        "I" to "ී",         // ී (long i)
+        "u" to "ු",         // ු
+        "U" to "ූ",         // ූ (long u)
+        "e" to "ෙ",         // ෙ
+        "E" to "ෛ",         // ෛ (kE = කෛ) - IMPORTANT FIX
+        "o" to "ො",         // ො
+        "O" to "ෝ"          // ෝ (long o)
     )
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // STATE VARIABLES
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private var rootContainer: FrameLayout? = null
     private var keyboardContainer: LinearLayout? = null
@@ -281,7 +403,7 @@ class FastKeyboardService : InputMethodService() {
         }
     }
     
-    // Key Preview Popup
+    // Key Preview
     private var previewPopup: PopupWindow? = null
     private var previewText: TextView? = null
     
@@ -300,19 +422,22 @@ class FastKeyboardService : InputMethodService() {
     private val englishBuffer = StringBuilder()
     private var currentSinhalaLength = 0
     
-    // Touch tracking - FIX FOR DOUBLE TYPING
+    // Touch tracking
     private val keyInfoList = mutableListOf<KeyInfo>()
     private var currentPressedKey: KeyInfo? = null
     private var lastKeyPressTime = 0L
     private var lastActionKeyTime = 0L
-    private var hasProcessedCurrentTouch = false  // Prevents double processing
+    private var hasProcessedCurrentTouch = false
     
     private var navigationBarHeight = 0
 
-    // ═══════════════════════════════════════════════════════════════════
-    // BROADCAST RECEIVER
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // BROADCAST RECEIVERS
+    // ═══════════════════════════════════════════════════════════════════════════
     
+    /**
+     * Settings Change Receiver - Reloads keyboard when settings change
+     */
     private val settingsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == KeyboardSettings.ACTION_SETTINGS_CHANGED) {
@@ -323,30 +448,149 @@ class FastKeyboardService : InputMethodService() {
             }
         }
     }
+    
+    /**
+     * API Event Receiver - THE LISTENER
+     * 
+     * This is the "ear" of the keyboard service.
+     * It receives commands from KeyboardAPI via broadcasts.
+     * This creates LOOSE COUPLING - Service doesn't know about API class.
+     */
+    private val apiEventReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action != ACTION_API_EVENT) return
+            
+            val command = intent.getStringExtra(EXTRA_COMMAND) ?: return
+            val data = intent.getStringExtra(EXTRA_DATA) ?: ""
+            val count = intent.getIntExtra(EXTRA_COUNT, 1)
+            
+            Log.d(TAG, "API Event received: $command, data=$data, count=$count")
+            
+            handler.post {
+                executeApiCommand(command, data, count)
+            }
+        }
+    }
+    
+    /**
+     * Execute API Command on InputConnection
+     * 
+     * This method is called by the BroadcastReceiver.
+     * It translates API commands to keyboard actions.
+     */
+    private fun executeApiCommand(command: String, data: String, count: Int) {
+        val ic = currentInputConnection ?: return
+        
+        when (command) {
+            CMD_TYPE_TEXT -> {
+                // If Sinhala mode, process through Singlish engine
+                if (isSinhalaMode && data.all { it.isLetter() }) {
+                    data.forEach { c ->
+                        processSinglish(ic, c)
+                    }
+                } else {
+                    // Direct commit for non-Sinhala
+                    flushSinglishBuffer()
+                    ic.commitText(data, 1)
+                }
+            }
+            
+            CMD_BACKSPACE -> {
+                repeat(count) {
+                    handleBackspace(ic)
+                }
+            }
+            
+            CMD_ENTER -> {
+                flushSinglishBuffer()
+                handleEnter(ic)
+            }
+            
+            CMD_CURSOR_LEFT -> {
+                flushSinglishBuffer()
+                val sel = ic.getTextBeforeCursor(1000, 0)?.length ?: 0
+                if (sel > 0) {
+                    ic.setSelection(sel - 1, sel - 1)
+                }
+            }
+            
+            CMD_CURSOR_RIGHT -> {
+                flushSinglishBuffer()
+                val before = ic.getTextBeforeCursor(1000, 0)?.length ?: 0
+                val after = ic.getTextAfterCursor(1000, 0)?.length ?: 0
+                if (after > 0) {
+                    ic.setSelection(before + 1, before + 1)
+                }
+            }
+            
+            CMD_CLEAR_ALL -> {
+                flushSinglishBuffer()
+                ic.performContextMenuAction(android.R.id.selectAll)
+                ic.commitText("", 1)
+            }
+            
+            CMD_VIBRATE -> {
+                val duration = data.toIntOrNull() ?: 50
+                vibrateMs(duration)
+            }
+            
+            CMD_HIDE_KEYBOARD -> {
+                requestHideSelf(0)
+            }
+        }
+    }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     override fun onCreate() {
         super.onCreate()
         loadSettings()
         calculateNavBarHeight()
         initPreviewPopup()
+        registerReceivers()
         
-        val filter = IntentFilter(KeyboardSettings.ACTION_SETTINGS_CHANGED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(settingsReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(settingsReceiver, filter)
-        }
+        Log.d(TAG, "FastKeyboardService created")
     }
     
     override fun onDestroy() {
         stopRepeat()
         hidePreview()
-        try { unregisterReceiver(settingsReceiver) } catch (_: Exception) {}
+        unregisterReceivers()
         super.onDestroy()
+        
+        Log.d(TAG, "FastKeyboardService destroyed")
+    }
+    
+    private fun registerReceivers() {
+        // Settings receiver
+        val settingsFilter = IntentFilter(KeyboardSettings.ACTION_SETTINGS_CHANGED)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(settingsReceiver, settingsFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(settingsReceiver, settingsFilter)
+        }
+        
+        // API event receiver
+        val apiFilter = IntentFilter(ACTION_API_EVENT)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(apiEventReceiver, apiFilter, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(apiEventReceiver, apiFilter)
+        }
+        
+        Log.d(TAG, "Receivers registered")
+    }
+    
+    private fun unregisterReceivers() {
+        try { 
+            unregisterReceiver(settingsReceiver) 
+        } catch (_: Exception) {}
+        
+        try { 
+            unregisterReceiver(apiEventReceiver) 
+        } catch (_: Exception) {}
     }
     
     private fun calculateNavBarHeight() {
@@ -399,9 +643,9 @@ class FastKeyboardService : InputMethodService() {
         longPressDelay = settings.longPressDelay
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // INPUT VIEW CREATION
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     override fun onCreateInputView(): View {
         loadSettings()
@@ -494,9 +738,9 @@ class FastKeyboardService : InputMethodService() {
         clearSinglishBuffer()
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // TOUCH HANDLING - FIXED DOUBLE TYPING
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // TOUCH HANDLING
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private fun updateKeyBounds() {
         keyInfoList.forEach { it.updateBounds() }
@@ -533,7 +777,6 @@ class FastKeyboardService : InputMethodService() {
                     applyPressVisual(key)
                     showPreview(key)
                     
-                    // Start repeat for backspace only
                     if (key.key == "⌫") {
                         startRepeat(key.key)
                     }
@@ -543,11 +786,9 @@ class FastKeyboardService : InputMethodService() {
             MotionEvent.ACTION_MOVE -> {
                 findKey(x, y)?.let { moveKey ->
                     if (moveKey != currentPressedKey) {
-                        // Cancel current key
                         currentPressedKey?.let { resetKeyVisual(it) }
                         hasProcessedCurrentTouch = false
                         
-                        // Press new key
                         currentPressedKey = moveKey
                         applyPressVisual(moveKey)
                         showPreview(moveKey)
@@ -559,12 +800,10 @@ class FastKeyboardService : InputMethodService() {
                 hidePreview()
                 stopRepeat()
                 
-                // CRITICAL FIX: Only process on ACTION_UP, and only once
                 currentPressedKey?.let { key ->
                     if (!hasProcessedCurrentTouch) {
                         val now = System.currentTimeMillis()
                         
-                        // Debounce check
                         val debounce = if (isActionKey(key.key)) ACTION_KEY_DEBOUNCE else DEBOUNCE_TIME
                         val lastTime = if (isActionKey(key.key)) lastActionKeyTime else lastKeyPressTime
                         
@@ -613,9 +852,9 @@ class FastKeyboardService : InputMethodService() {
         keyInfoList.forEach { resetKeyVisual(it) }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // KEY PREVIEW
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private fun showPreview(ki: KeyInfo) {
         if (isSpecialKey(ki.key)) {
@@ -643,7 +882,6 @@ class FastKeyboardService : InputMethodService() {
         var px = loc[0] + (keyW - previewW) / 2
         var py = loc[1] - previewH - dp(8)
         
-        // Keep on screen
         val screenW = resources.displayMetrics.widthPixels
         if (px < dp(4)) px = dp(4)
         if (px + previewW > screenW - dp(4)) px = screenW - previewW - dp(4)
@@ -679,9 +917,9 @@ class FastKeyboardService : InputMethodService() {
         } else key
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // KEYBOARD BUILDING
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private fun createEmojiRow(): LinearLayout {
         return LinearLayout(this).apply {
@@ -850,9 +1088,9 @@ class FastKeyboardService : InputMethodService() {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     // KEY PROCESSING
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private fun processKey(key: String) {
         val ic = currentInputConnection ?: return
@@ -928,10 +1166,19 @@ class FastKeyboardService : InputMethodService() {
         autoResetShift()
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH ENGINE - GREEDY BACK-MATCHING (NO TIMER)
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // SINGLISH TRANSLITERATION ENGINE
+    // ═══════════════════════════════════════════════════════════════════════════
     
+    /**
+     * Process Singlish Input
+     * 
+     * Uses "Greedy Back-Matching" algorithm:
+     * 1. Add character to buffer
+     * 2. Delete current Sinhala output
+     * 3. Reconvert entire buffer
+     * 4. Commit new Sinhala
+     */
     private fun processSinglish(ic: InputConnection, c: Char) {
         // Delete current Sinhala output
         if (currentSinhalaLength > 0) {
@@ -949,6 +1196,17 @@ class FastKeyboardService : InputMethodService() {
         currentSinhalaLength = sinhala.length
     }
     
+    /**
+     * Convert English/Singlish to Sinhala
+     * 
+     * PRIORITY ORDER:
+     * 1. Special Z-Combinations (5-4 chars)
+     * 2. 3-Letter Combinations
+     * 3. 2-Letter Combinations
+     * 4. 1-Letter Combinations
+     * 
+     * Algorithm: Greedy longest-match-first
+     */
     private fun convertToSinhala(english: String): String {
         val result = StringBuilder()
         var i = 0
@@ -960,31 +1218,36 @@ class FastKeyboardService : InputMethodService() {
             var isConsonant = false
             var needsHal = false
             
-            // PRIORITY 1: Try Special Z-Combinations (4-5 chars) - CHECK FIRST!
+            // ═══════════════════════════════════════════════════════════════
+            // PRIORITY 1: Special Z-Combinations (4-5 chars)
+            // ═══════════════════════════════════════════════════════════════
             for (len in minOf(5, english.length - i) downTo 3) {
                 val sub = english.substring(i, i + len)
                 consonantsSpecial[sub]?.let {
                     matched = it
                     matchLen = len
                     isConsonant = true
-                    needsHal = !sub.endsWith("a") // 'a' removes hal
+                    needsHal = !sub.endsWith("a")
                     return@let
                 }
                 if (matched != null) break
             }
             
-            // PRIORITY 2: Try 3-Letter Consonants
+            // ═══════════════════════════════════════════════════════════════
+            // PRIORITY 2: 3-Letter Combinations
+            // ═══════════════════════════════════════════════════════════════
             if (matched == null && i + 3 <= english.length) {
                 val sub = english.substring(i, i + 3)
                 
+                // 3-letter consonants
                 consonants3[sub]?.let {
                     matched = it
                     matchLen = 3
                     isConsonant = true
-                    needsHal = true
+                    needsHal = !sub.endsWith("a")
                 }
                 
-                // 3-letter vowel modifier
+                // 3-letter vowel modifier (after consonant)
                 if (matched == null && lastWasConsonant) {
                     vowelModifiers[sub]?.let {
                         if (result.isNotEmpty() && result.endsWith(HAL)) {
@@ -1007,18 +1270,22 @@ class FastKeyboardService : InputMethodService() {
                 }
             }
             
-            // PRIORITY 3: Try 2-Letter Consonants
+            // ═══════════════════════════════════════════════════════════════
+            // PRIORITY 3: 2-Letter Combinations
+            // ═══════════════════════════════════════════════════════════════
             if (matched == null && i + 2 <= english.length) {
                 val sub = english.substring(i, i + 2)
                 
+                // 2-letter consonants
                 consonants2[sub]?.let {
                     matched = it
                     matchLen = 2
                     isConsonant = true
-                    needsHal = sub !in listOf("Lu", "zn") // These don't need hal
+                    // Check if it ends with 'a' or is special
+                    needsHal = !sub.endsWith("a") && sub !in listOf("Lu", "zn", "zb")
                 }
                 
-                // 2-letter vowel modifier
+                // 2-letter vowel modifier (after consonant)
                 if (matched == null && lastWasConsonant) {
                     vowelModifiers[sub]?.let {
                         if (result.isNotEmpty() && result.endsWith(HAL)) {
@@ -1041,7 +1308,9 @@ class FastKeyboardService : InputMethodService() {
                 }
             }
             
-            // PRIORITY 4: Try 1-Letter
+            // ═══════════════════════════════════════════════════════════════
+            // PRIORITY 4: 1-Letter
+            // ═══════════════════════════════════════════════════════════════
             if (matched == null && i < english.length) {
                 val sub = english.substring(i, i + 1)
                 val ch = sub[0]
@@ -1085,7 +1354,9 @@ class FastKeyboardService : InputMethodService() {
                     }
                 }
                 
-                // Yansaya: 'y' after consonant with hal
+                // ═══════════════════════════════════════════════════════════
+                // SPECIAL: Yansaya (y after consonant)
+                // ═══════════════════════════════════════════════════════════
                 if (matched == null && (ch == 'y' || ch == 'Y') && lastWasConsonant) {
                     if (result.isNotEmpty() && result.endsWith(HAL)) {
                         result.deleteCharAt(result.length - 1)
@@ -1098,7 +1369,9 @@ class FastKeyboardService : InputMethodService() {
                     continue
                 }
                 
-                // Rakaransaya: 'r' after consonant followed by vowel
+                // ═══════════════════════════════════════════════════════════
+                // SPECIAL: Rakaransaya (r after consonant + vowel follows)
+                // ═══════════════════════════════════════════════════════════
                 if (matched == null && (ch == 'r' || ch == 'R') && lastWasConsonant && i + 2 <= english.length) {
                     val next = english[i + 1]
                     if (next in "aeiouAEIOU") {
@@ -1116,7 +1389,9 @@ class FastKeyboardService : InputMethodService() {
                 }
             }
             
-            // Apply match
+            // ═══════════════════════════════════════════════════════════════
+            // APPLY MATCH
+            // ═══════════════════════════════════════════════════════════════
             if (matched != null) {
                 result.append(matched)
                 if (isConsonant && needsHal) {
@@ -1124,6 +1399,8 @@ class FastKeyboardService : InputMethodService() {
                     lastWasConsonant = true
                 } else if (!isConsonant) {
                     lastWasConsonant = false
+                } else {
+                    lastWasConsonant = isConsonant
                 }
                 i += matchLen
             } else {
@@ -1158,9 +1435,9 @@ class FastKeyboardService : InputMethodService() {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════════
     
     private fun startRepeat(key: String) {
         isRepeating = true
@@ -1183,14 +1460,17 @@ class FastKeyboardService : InputMethodService() {
     
     private fun vibrate() {
         if (!vibrateEnabled) return
-        
+        vibrateMs(vibrateDuration)
+    }
+    
+    private fun vibrateMs(ms: Int) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 vibrator?.vibrate(VibrationEffect.createOneShot(
-                    vibrateDuration.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+                    ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
             } else {
                 @Suppress("DEPRECATION")
-                vibrator?.vibrate(vibrateDuration.toLong())
+                vibrator?.vibrate(ms.toLong())
             }
         } catch (_: Exception) {}
     }
@@ -1241,5 +1521,23 @@ class FastKeyboardService : InputMethodService() {
         Color.parseColor(color)
     } catch (_: Exception) {
         Color.BLACK
+    }
+    
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PUBLIC API FOR EXTERNAL ACCESS (via Broadcast)
+    // ═══════════════════════════════════════════════════════════════════════════
+    
+    /**
+     * Get text before cursor - Accessible via Broadcast response
+     */
+    fun getTextBeforeCursor(count: Int): String {
+        return currentInputConnection?.getTextBeforeCursor(count, 0)?.toString() ?: ""
+    }
+    
+    /**
+     * Get text after cursor - Accessible via Broadcast response
+     */
+    fun getTextAfterCursor(count: Int): String {
+        return currentInputConnection?.getTextAfterCursor(count, 0)?.toString() ?: ""
     }
 }
