@@ -29,10 +29,6 @@ android {
     kotlinOptions {
         jvmTarget = '17'
     }
-    
-    buildFeatures {
-        viewBinding true
-    }
 }
 
 repositories {
@@ -45,15 +41,13 @@ dependencies {
     // Kotlin
     implementation "org.jetbrains.kotlin:kotlin-stdlib:$kotlin_version"
     
-    // AndroidX Core
-    implementation "androidx.core:core-ktx:1.12.0"
-    implementation "androidx.appcompat:appcompat:1.6.1"
+    // AndroidX Core - FIXED VERSIONS (compatible with AGP 8.13.0)
+    implementation "androidx.core:core-ktx:1.15.0"
+    implementation "androidx.appcompat:appcompat:1.7.0"
     
-    // Capacitor (if using)
+    // Capacitor
     implementation project(':capacitor-android')
     implementation project(':capacitor-cordova-android-plugins')
-    
-    // Your existing dependencies...
 }
 
 apply from: 'capacitor.build.gradle'
