@@ -16,7 +16,6 @@ import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
-import android.util.Log
 import android.util.TypedValue
 import android.view.Gravity
 import android.view.MotionEvent
@@ -33,17 +32,15 @@ import java.io.File
 
 /**
  * ═══════════════════════════════════════════════════════════════════════════════
- * FAST KEYBOARD SERVICE
+ * ULTRA FAST KEYBOARD SERVICE
  * ═══════════════════════════════════════════════════════════════════════════════
  * 
- * Responsibilities:
- * 1. Keyboard UI Rendering & Lifecycle
- * 2. Singlish-to-Sinhala Transliteration Engine
- * 3. Touch Handling & Key Processing
- * 4. BroadcastReceiver for API Commands (Loosely Coupled)
- * 
- * This class does NOT know about KeyboardAPI.kt
- * It only listens for standard Android broadcasts.
+ * OPTIMIZATIONS:
+ * - ZERO debounce for character keys
+ * - Minimal debounce for action keys only
+ * - Inline processing without Handler delays
+ * - Efficient touch detection
+ * - No unnecessary rebuilds
  * 
  * ═══════════════════════════════════════════════════════════════════════════════
  */
@@ -52,18 +49,17 @@ class FastKeyboardService : InputMethodService() {
     companion object {
         private const val TAG = "FastKeyboard"
         
-        // Sinhala Special Characters
+        // Sinhala Characters
         private const val HAL = "්"
         private const val YANSAYA = "්‍ය"
         private const val RAKARANSAYA = "්‍ර"
         
-        // API Broadcast Actions
+        // API Broadcast
         const val ACTION_API_EVENT = "com.keybord.app.API_EVENT"
         const val EXTRA_COMMAND = "command"
         const val EXTRA_DATA = "data"
         const val EXTRA_COUNT = "count"
         
-        // API Commands
         const val CMD_TYPE_TEXT = "TYPE_TEXT"
         const val CMD_BACKSPACE = "BACKSPACE"
         const val CMD_ENTER = "ENTER"
@@ -73,13 +69,12 @@ class FastKeyboardService : InputMethodService() {
         const val CMD_VIBRATE = "VIBRATE"
         const val CMD_HIDE_KEYBOARD = "HIDE_KEYBOARD"
         
-        // Debounce
-        private const val DEBOUNCE_TIME = 100L
-        private const val ACTION_KEY_DEBOUNCE = 250L
+        // ULTRA FAST - Minimal delays
+        private const val ACTION_KEY_DEBOUNCE = 150L  // Only for shift/mode keys
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // DATA CLASSES
+    // KEY INFO
     // ═══════════════════════════════════════════════════════════════════════════
     
     data class KeyInfo(
@@ -93,17 +88,12 @@ class FastKeyboardService : InputMethodService() {
             bounds.set(loc[0], loc[1], loc[0] + view.width, loc[1] + view.height)
         }
         
-        fun contains(x: Float, y: Float): Boolean = bounds.contains(x.toInt(), y.toInt())
-        
-        fun distanceTo(x: Float, y: Float): Float {
-            val cx = bounds.centerX().toFloat()
-            val cy = bounds.centerY().toFloat()
-            return kotlin.math.sqrt((x - cx) * (x - cx) + (y - cy) * (y - cy))
-        }
+        fun contains(x: Float, y: Float): Boolean = 
+            bounds.contains(x.toInt(), y.toInt())
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // THEME & SETTINGS
+    // SETTINGS
     // ═══════════════════════════════════════════════════════════════════════════
     
     private var colorBackground = "#000000"
@@ -121,8 +111,8 @@ class FastKeyboardService : InputMethodService() {
     private var vibrateEnabled = true
     private var vibrateDuration = 5
     private var showEmojiRow = false
-    private var longPressDelay = 300
-    private var repeatInterval = 30
+    private var longPressDelay = 250
+    private var repeatInterval = 25
 
     // ═══════════════════════════════════════════════════════════════════════════
     // KEYBOARD LAYOUTS
@@ -150,7 +140,7 @@ class FastKeyboardService : InputMethodService() {
     )
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SINHALA KEY LABELS (For keyboard display)
+    // SINHALA LABELS
     // ═══════════════════════════════════════════════════════════════════════════
     
     private val sinhalaLabels = mapOf(
@@ -172,217 +162,76 @@ class FastKeyboardService : InputMethodService() {
     )
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SINGLISH TRANSLITERATION ENGINE - CORRECT MAPPINGS
+    // SINGLISH ENGINE - FIXED CORRECT MAPPINGS
     // ═══════════════════════════════════════════════════════════════════════════
     
-    /**
-     * PRIORITY ORDER FOR MATCHING:
-     * 1. Special Z-Combinations (4-5 letters) - HIGHEST
-     * 2. 3-Letter Combinations
-     * 3. 2-Letter Combinations  
-     * 4. 1-Letter Combinations - LOWEST
-     * 
-     * Greedy matching: Always try longest match first
-     */
-    
-    // PRIORITY 1: Special Z-Combinations & Long Sequences
+    // Priority 1: 4-5 letter special combos
     private val consonantsSpecial = mapOf(
-        // Sanyaka Letters (Z-based)
-        "zdha" to "ඳ",      // ඳ - Sanyaka dha
-        "zja" to "ඦ",       // ඦ - Sanyaka ja  
-        "zda" to "ඬ",       // ඬ - Sanyaka da
-        "zdh" to "ඳ",       // ඳ - Alternative
-        "zqa" to "ඳ",       // ඳ - Alternative
-        "zka" to "ඤ",       // ඤ - Sanyaka ka (Taaluja Naasikya)
-        "zha" to "ඥ",       // ඥ - Sanyaka ha (Muurdhaja Naasikya)
-        "zga" to "ඟ",       // ඟ - Sanyaka ga
-        
-        // Special Combinations
-        "ksha" to "ක්ෂ",    // Ksha
-        "ksh" to "ක්ෂ",
-        "thth" to "ත්ථ",
-        "nDh" to "ඳ",       // Alternative for ඳ
-        "ngh" to "ඟ"        // Alternative for ඟ
+        "zdha" to "ඳ", "zja" to "ඦ", "zda" to "ඬ", "zga" to "ඟ",
+        "zdh" to "ඳ", "zqa" to "ඳ", "zka" to "ඤ", "zha" to "ඥ",
+        "ksha" to "ක්ෂ", "ksh" to "ක්ෂ", "thth" to "ත්ථ",
+        "nDh" to "ඳ", "ngh" to "ඟ"
     )
     
-    // PRIORITY 2: 3-Letter Consonants
+    // Priority 2: 3 letter
     private val consonants3 = mapOf(
-        "Sha" to "ෂ",       // ෂ - Muurdhaja Ushma (capital S + ha)
-        "Cha" to "ඡ",       // ඡ - Aspirated cha
-        "Tha" to "ථ",       // ථ - Aspirated tha (dental)
-        "Dha" to "ධ",       // ධ - Aspirated dha (dental)
-        "kha" to "ඛ",       // ඛ - Aspirated ka
-        "gha" to "ඝ",       // ඝ - Aspirated ga
-        "pha" to "ඵ",       // ඵ - Aspirated pa
-        "bha" to "භ",       // භ - Aspirated ba
-        "sha" to "ශ",       // ශ - Taaluja Ushma
-        "ruu" to "ඎ"        // ඎ - Deergha Gayanukitha (standalone)
+        "Sha" to "ෂ", "Cha" to "ඡ", "Tha" to "ථ", "Dha" to "ධ",
+        "kha" to "ඛ", "gha" to "ඝ", "pha" to "ඵ", "bha" to "භ",
+        "sha" to "ශ", "ruu" to "ඎ"
     )
     
-    // PRIORITY 3: 2-Letter Consonants
+    // Priority 3: 2 letter consonants
     private val consonants2 = mapOf(
-        // Aspirated Consonants (Mahaprana)
-        "kh" to "ඛ",        // ඛ
-        "gh" to "ඝ",        // ඝ
-        "ch" to "ච",        // ච - Basic cha
-        "Ch" to "ඡ",        // ඡ - Aspirated cha
-        "jh" to "ඣ",        // ඣ - Aspirated ja (but rarely used)
-        "Ja" to "ඣ",        // ඣ - Alternative
-        "th" to "ත",        // ත - Dental ta
-        "Th" to "ථ",        // ථ - Aspirated dental ta
-        "dh" to "ද",        // ද - Dental da
-        "Dh" to "ධ",        // ධ - Aspirated dental da
-        "ph" to "ඵ",        // ඵ - Aspirated pa
-        "bh" to "භ",        // භ - Aspirated ba
-        "sh" to "ශ",        // ශ - Taaluja ushma
-        "Sh" to "ෂ",        // ෂ - Muurdhaja ushma
-        
-        // Retroflex Consonants
-        "Ta" to "ඨ",        // ඨ - Aspirated retroflex ta
-        "Da" to "ඪ",        // ඪ - Aspirated retroflex da
-        "Na" to "ණ",        // ණ - Retroflex na
-        "La" to "ළ",        // ළ - Retroflex la
-        "Lu" to "ළු",       // ළු - Retroflex la + u
-        
-        // Sanyaka Shortcuts
-        "Ba" to "ඹ",        // ඹ - Amba (sanyaka ba)
-        "zb" to "ඹ",        // ඹ - Alternative
-        "zn" to "ං",        // ං - Binduwa
-        
-        // Vowel-like
-        "aa" to "ආ",        // ආ - Long a (standalone)
-        "Aa" to "ඈ",        // ඈ - Long ae
-        "AA" to "ඈ",        // ඈ - Alternative
-        "ae" to "ඇ",        // ඇ - Short ae
-        "Ae" to "ඈ",        // ඈ - Long ae
-        "ii" to "ඊ",        // ඊ - Long i
-        "uu" to "ඌ",        // ඌ - Long u
-        "ee" to "ඒ",        // ඒ - Long e
-        "ei" to "ඒ",        // ඒ - Alternative
-        "oo" to "ඕ",        // ඕ - Long o
-        "oe" to "ඕ",        // ඕ - Alternative
-        "au" to "ඖ",        // ඖ - Au
-        "ru" to "ඍ",        // ඍ - Gayanukitha
-        "ai" to "ඓ"         // ඓ - Ai
+        "kh" to "ඛ", "gh" to "ඝ", "ch" to "ච", "Ch" to "ඡ",
+        "jh" to "ඣ", "Ja" to "ඣ", "th" to "ත", "Th" to "ථ",
+        "dh" to "ද", "Dh" to "ධ", "ph" to "ඵ", "bh" to "භ",
+        "sh" to "ශ", "Sh" to "ෂ", "Ta" to "ඨ", "Da" to "ඪ",
+        "Na" to "ණ", "La" to "ළ", "Lu" to "ළු", "Ba" to "ඹ",
+        "zb" to "ඹ", "zn" to "ං"
     )
     
-    // PRIORITY 4: 1-Letter Consonants
+    // Priority 4: 1 letter consonants
     private val consonants1 = mapOf(
-        "k" to "ක",         // ක
-        "g" to "ග",         // ග
-        "c" to "ච",         // ච (same as ch)
-        "j" to "ජ",         // ජ
-        "t" to "ට",         // ට - Retroflex ta
-        "d" to "ඩ",         // ඩ - Retroflex da  
-        "n" to "න",         // න - Dental na
-        "p" to "ප",         // ප
-        "b" to "බ",         // බ
-        "m" to "ම",         // ම
-        "y" to "ය",         // ය
-        "r" to "ර",         // ර
-        "l" to "ල",         // ල - Dental la
-        "w" to "ව",         // ව
-        "v" to "ව",         // ව (same as w)
-        "s" to "ස",         // ස
-        "h" to "හ",         // හ
-        "f" to "ෆ",         // ෆ
-        "z" to "ඤ",         // ඤ (fallback for z)
-        "q" to "ක",         // ක (same as k)
-        
-        // Capital variations
-        "K" to "ඛ",         // ඛ - Aspirated
-        "G" to "ඝ",         // ඝ - Aspirated
-        "C" to "ඡ",         // ඡ - Aspirated
-        "J" to "ඣ",         // ඣ - Aspirated
-        "T" to "ඨ",         // ඨ - Retroflex aspirated
-        "D" to "ඪ",         // ඪ - Retroflex aspirated
-        "N" to "ණ",         // ණ - Retroflex na
-        "P" to "ඵ",         // ඵ - Aspirated pa
-        "B" to "භ",         // භ - Aspirated ba (or ඹ based on context)
-        "L" to "ළ",         // ළ - Retroflex la
-        "S" to "ෂ",         // ෂ - Muurdhaja ushma
-        "F" to "ෆ",         // ෆ
-        "Z" to "ඥ",         // ඥ
-        "Q" to "ඛ"          // ඛ - Same as K
+        "k" to "ක", "g" to "ග", "c" to "ච", "j" to "ජ",
+        "t" to "ට", "d" to "ඩ", "n" to "න", "p" to "ප",
+        "b" to "බ", "m" to "ම", "y" to "ය", "r" to "ර",
+        "l" to "ල", "w" to "ව", "v" to "ව", "s" to "ස",
+        "h" to "හ", "f" to "ෆ", "z" to "ඤ", "q" to "ක",
+        "K" to "ඛ", "G" to "ඝ", "C" to "ඡ", "J" to "ඣ",
+        "T" to "ඨ", "D" to "ඪ", "N" to "ණ", "P" to "ඵ",
+        "B" to "භ", "L" to "ළ", "S" to "ෂ", "F" to "ෆ",
+        "Z" to "ඥ", "Q" to "ඛ"
     )
     
-    // Special consonants that don't take hal
+    // Special (no hal)
     private val specialConsonants = mapOf(
-        "x" to "ං",         // ං - Binduwa (Anusvara)
-        "X" to "ඞ",         // ඞ - Kantaja Naasikya (Inga)
-        "H" to "ඃ"          // ඃ - Visargaya
+        "x" to "ං", "X" to "ඞ", "H" to "ඃ"
     )
     
-    // Standalone Vowels (Used at start of word or after vowel)
+    // Standalone vowels
     private val vowelsStandalone = mapOf(
-        // 3-letter
-        "ruu" to "ඎ",       // ඎ - Deergha Gayanukitha
-        
-        // 2-letter  
-        "aa" to "ආ",        // ආ
-        "Aa" to "ඈ",        // ඈ
-        "AA" to "ඈ",        // ඈ
-        "ae" to "ඇ",        // ඇ
-        "Ae" to "ඈ",        // ඈ
-        "ii" to "ඊ",        // ඊ
-        "uu" to "ඌ",        // ඌ
-        "ee" to "ඒ",        // ඒ
-        "ei" to "ඒ",        // ඒ
-        "oo" to "ඕ",        // ඕ
-        "oe" to "ඕ",        // ඕ
-        "au" to "ඖ",        // ඖ
-        "ai" to "ඓ",        // ඓ
-        "ru" to "ඍ",        // ඍ
-        
-        // 1-letter
-        "a" to "අ",         // අ
-        "A" to "ඇ",         // ඇ
-        "i" to "ඉ",         // ඉ
-        "I" to "ඊ",         // ඊ (long i)
-        "u" to "උ",         // උ
-        "U" to "ඌ",         // ඌ (long u)
-        "e" to "එ",         // එ
-        "E" to "ඓ",         // ඓ (ai sound) - IMPORTANT FIX
-        "o" to "ඔ",         // ඔ
-        "O" to "ඕ"          // ඕ (long o)
+        "ruu" to "ඎ", "aa" to "ආ", "Aa" to "ඈ", "AA" to "ඈ",
+        "ae" to "ඇ", "Ae" to "ඈ", "ii" to "ඊ", "uu" to "ඌ",
+        "ee" to "ඒ", "ei" to "ඒ", "oo" to "ඕ", "oe" to "ඕ",
+        "au" to "ඖ", "ai" to "ඓ", "ru" to "ඍ",
+        "a" to "අ", "A" to "ඇ", "i" to "ඉ", "I" to "ඊ",
+        "u" to "උ", "U" to "ඌ", "e" to "එ", "E" to "ඓ",
+        "o" to "ඔ", "O" to "ඕ"
     )
     
-    // Vowel Modifiers (Pilla) - Applied after consonant with hal
+    // Vowel modifiers (pilla)
     private val vowelModifiers = mapOf(
-        // 3-letter
-        "ruu" to "ෲ",       // ෲ - Deergha Gayanukitha pilla
-        
-        // 2-letter
-        "aa" to "ා",        // ා
-        "Aa" to "ෑ",        // ෑ
-        "AA" to "ෑ",        // ෑ
-        "ae" to "ැ",        // ැ
-        "Ae" to "ෑ",        // ෑ
-        "ii" to "ී",        // ී
-        "uu" to "ූ",        // ූ
-        "ee" to "ේ",        // ේ
-        "ei" to "ේ",        // ේ
-        "oo" to "ෝ",        // ෝ
-        "oe" to "ෝ",        // ෝ
-        "au" to "ෞ",        // ෞ
-        "ai" to "ෛ",        // ෛ
-        "ru" to "ෘ",        // ෘ
-        
-        // 1-letter
-        "a" to "",          // Just removes hal (ka = ක)
-        "A" to "ැ",         // ැ (kA = කැ)
-        "i" to "ි",         // ි
-        "I" to "ී",         // ී (long i)
-        "u" to "ු",         // ු
-        "U" to "ූ",         // ූ (long u)
-        "e" to "ෙ",         // ෙ
-        "E" to "ෛ",         // ෛ (kE = කෛ) - IMPORTANT FIX
-        "o" to "ො",         // ො
-        "O" to "ෝ"          // ෝ (long o)
+        "ruu" to "ෲ", "aa" to "ා", "Aa" to "ෑ", "AA" to "ෑ",
+        "ae" to "ැ", "Ae" to "ෑ", "ii" to "ී", "uu" to "ූ",
+        "ee" to "ේ", "ei" to "ේ", "oo" to "ෝ", "oe" to "ෝ",
+        "au" to "ෞ", "ai" to "ෛ", "ru" to "ෘ",
+        "a" to "", "A" to "ැ", "i" to "ි", "I" to "ී",
+        "u" to "ු", "U" to "ූ", "e" to "ෙ", "E" to "ෛ",
+        "o" to "ො", "O" to "ෝ"
     )
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // STATE VARIABLES
+    // STATE
     // ═══════════════════════════════════════════════════════════════════════════
     
     private var rootContainer: FrameLayout? = null
@@ -390,154 +239,90 @@ class FastKeyboardService : InputMethodService() {
     private var keyboardView: LinearLayout? = null
     private var backgroundImageView: ImageView? = null
     
-    private val handler by lazy { Handler(Looper.getMainLooper()) }
+    private val handler = Handler(Looper.getMainLooper())
     private val settings by lazy { KeyboardSettings(this) }
     
     private val vibrator: Vibrator? by lazy {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
-            manager?.defaultVibrator
+            (getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager)?.defaultVibrator
         } else {
             @Suppress("DEPRECATION")
             getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
         }
     }
     
-    // Key Preview
     private var previewPopup: PopupWindow? = null
     private var previewText: TextView? = null
     
-    // Keyboard State
+    // State
     private var isShift = false
     private var isCaps = false
     private var isNumbers = false
     private var isSymbols = false
     private var isSinhalaMode = false
     
-    // Repeat handling
+    // Repeat
     private var isRepeating = false
     private var repeatRunnable: Runnable? = null
     
-    // Singlish Buffer
+    // Singlish buffer
     private val englishBuffer = StringBuilder()
     private var currentSinhalaLength = 0
     
-    // Touch tracking
+    // Touch - ULTRA FAST
     private val keyInfoList = mutableListOf<KeyInfo>()
     private var currentPressedKey: KeyInfo? = null
-    private var lastKeyPressTime = 0L
     private var lastActionKeyTime = 0L
-    private var hasProcessedCurrentTouch = false
     
     private var navigationBarHeight = 0
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // BROADCAST RECEIVERS
+    // RECEIVERS
     // ═══════════════════════════════════════════════════════════════════════════
     
-    /**
-     * Settings Change Receiver - Reloads keyboard when settings change
-     */
     private val settingsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == KeyboardSettings.ACTION_SETTINGS_CHANGED) {
-                handler.post {
-                    loadSettings()
-                    rebuildKeyboard()
-                }
+                handler.post { loadSettings(); rebuildKeyboard() }
             }
         }
     }
     
-    /**
-     * API Event Receiver - THE LISTENER
-     * 
-     * This is the "ear" of the keyboard service.
-     * It receives commands from KeyboardAPI via broadcasts.
-     * This creates LOOSE COUPLING - Service doesn't know about API class.
-     */
     private val apiEventReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action != ACTION_API_EVENT) return
-            
             val command = intent.getStringExtra(EXTRA_COMMAND) ?: return
             val data = intent.getStringExtra(EXTRA_DATA) ?: ""
             val count = intent.getIntExtra(EXTRA_COUNT, 1)
-            
-            Log.d(TAG, "API Event received: $command, data=$data, count=$count")
-            
-            handler.post {
-                executeApiCommand(command, data, count)
-            }
+            executeApiCommand(command, data, count)
         }
     }
     
-    /**
-     * Execute API Command on InputConnection
-     * 
-     * This method is called by the BroadcastReceiver.
-     * It translates API commands to keyboard actions.
-     */
     private fun executeApiCommand(command: String, data: String, count: Int) {
         val ic = currentInputConnection ?: return
-        
         when (command) {
             CMD_TYPE_TEXT -> {
-                // If Sinhala mode, process through Singlish engine
                 if (isSinhalaMode && data.all { it.isLetter() }) {
-                    data.forEach { c ->
-                        processSinglish(ic, c)
-                    }
+                    data.forEach { processSinglish(ic, it) }
                 } else {
-                    // Direct commit for non-Sinhala
-                    flushSinglishBuffer()
-                    ic.commitText(data, 1)
+                    flushBuffer(); ic.commitText(data, 1)
                 }
             }
-            
-            CMD_BACKSPACE -> {
-                repeat(count) {
-                    handleBackspace(ic)
-                }
-            }
-            
-            CMD_ENTER -> {
-                flushSinglishBuffer()
-                handleEnter(ic)
-            }
-            
-            CMD_CURSOR_LEFT -> {
-                flushSinglishBuffer()
-                val sel = ic.getTextBeforeCursor(1000, 0)?.length ?: 0
-                if (sel > 0) {
-                    ic.setSelection(sel - 1, sel - 1)
-                }
-            }
-            
-            CMD_CURSOR_RIGHT -> {
-                flushSinglishBuffer()
-                val before = ic.getTextBeforeCursor(1000, 0)?.length ?: 0
-                val after = ic.getTextAfterCursor(1000, 0)?.length ?: 0
-                if (after > 0) {
-                    ic.setSelection(before + 1, before + 1)
-                }
-            }
-            
-            CMD_CLEAR_ALL -> {
-                flushSinglishBuffer()
-                ic.performContextMenuAction(android.R.id.selectAll)
-                ic.commitText("", 1)
-            }
-            
-            CMD_VIBRATE -> {
-                val duration = data.toIntOrNull() ?: 50
-                vibrateMs(duration)
-            }
-            
-            CMD_HIDE_KEYBOARD -> {
-                requestHideSelf(0)
-            }
+            CMD_BACKSPACE -> repeat(count) { handleBackspace(ic) }
+            CMD_ENTER -> { flushBuffer(); handleEnter(ic) }
+            CMD_CURSOR_LEFT -> { flushBuffer(); moveCursor(ic, -1) }
+            CMD_CURSOR_RIGHT -> { flushBuffer(); moveCursor(ic, 1) }
+            CMD_CLEAR_ALL -> { flushBuffer(); ic.performContextMenuAction(android.R.id.selectAll); ic.commitText("", 1) }
+            CMD_VIBRATE -> vibrateMs(data.toIntOrNull() ?: 50)
+            CMD_HIDE_KEYBOARD -> requestHideSelf(0)
         }
+    }
+    
+    private fun moveCursor(ic: InputConnection, dir: Int) {
+        val before = ic.getTextBeforeCursor(1000, 0)?.length ?: 0
+        val after = ic.getTextAfterCursor(1000, 0)?.length ?: 0
+        val newPos = if (dir < 0) maxOf(0, before - 1) else minOf(before + after, before + 1)
+        ic.setSelection(newPos, newPos)
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -549,57 +334,31 @@ class FastKeyboardService : InputMethodService() {
         loadSettings()
         calculateNavBarHeight()
         initPreviewPopup()
-        registerReceivers()
         
-        Log.d(TAG, "FastKeyboardService created")
+        val filter1 = IntentFilter(KeyboardSettings.ACTION_SETTINGS_CHANGED)
+        val filter2 = IntentFilter(ACTION_API_EVENT)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(settingsReceiver, filter1, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(apiEventReceiver, filter2, Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            registerReceiver(settingsReceiver, filter1)
+            registerReceiver(apiEventReceiver, filter2)
+        }
     }
     
     override fun onDestroy() {
         stopRepeat()
         hidePreview()
-        unregisterReceivers()
+        try { unregisterReceiver(settingsReceiver) } catch (_: Exception) {}
+        try { unregisterReceiver(apiEventReceiver) } catch (_: Exception) {}
         super.onDestroy()
-        
-        Log.d(TAG, "FastKeyboardService destroyed")
-    }
-    
-    private fun registerReceivers() {
-        // Settings receiver
-        val settingsFilter = IntentFilter(KeyboardSettings.ACTION_SETTINGS_CHANGED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(settingsReceiver, settingsFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(settingsReceiver, settingsFilter)
-        }
-        
-        // API event receiver
-        val apiFilter = IntentFilter(ACTION_API_EVENT)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(apiEventReceiver, apiFilter, Context.RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(apiEventReceiver, apiFilter)
-        }
-        
-        Log.d(TAG, "Receivers registered")
-    }
-    
-    private fun unregisterReceivers() {
-        try { 
-            unregisterReceiver(settingsReceiver) 
-        } catch (_: Exception) {}
-        
-        try { 
-            unregisterReceiver(apiEventReceiver) 
-        } catch (_: Exception) {}
     }
     
     private fun calculateNavBarHeight() {
         navigationBarHeight = try {
             val id = resources.getIdentifier("navigation_bar_height", "dimen", "android")
             if (id > 0) resources.getDimensionPixelSize(id) else dp(48)
-        } catch (_: Exception) {
-            dp(48)
-        }
+        } catch (_: Exception) { dp(48) }
     }
     
     private fun initPreviewPopup() {
@@ -609,18 +368,12 @@ class FastKeyboardService : InputMethodService() {
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(14), dp(10), dp(14))
-            
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#424242"))
                 cornerRadius = dp(8).toFloat()
             }
         }
-        
-        previewPopup = PopupWindow(
-            previewText,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            ViewGroup.LayoutParams.WRAP_CONTENT
-        ).apply {
+        previewPopup = PopupWindow(previewText, ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
             isClippingEnabled = false
             isTouchable = false
         }
@@ -644,7 +397,7 @@ class FastKeyboardService : InputMethodService() {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // INPUT VIEW CREATION
+    // INPUT VIEW
     // ═══════════════════════════════════════════════════════════════════════════
     
     override fun onCreateInputView(): View {
@@ -654,7 +407,6 @@ class FastKeyboardService : InputMethodService() {
             setBackgroundColor(parseColor(colorBackground))
         }
         
-        // Background image
         backgroundImageView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             layoutParams = FrameLayout.LayoutParams(-1, -1)
@@ -662,37 +414,23 @@ class FastKeyboardService : InputMethodService() {
         rootContainer?.addView(backgroundImageView)
         loadBackgroundImage()
         
-        // Keyboard container
-        keyboardContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        
-        if (showEmojiRow) {
-            keyboardContainer?.addView(createEmojiRow())
-        }
-        
+        keyboardContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        if (showEmojiRow) keyboardContainer?.addView(createEmojiRow())
         keyboardView = createKeyboard()
         keyboardContainer?.addView(keyboardView)
         
-        val kbParams = FrameLayout.LayoutParams(-1, -2).apply {
-            gravity = Gravity.BOTTOM
-        }
-        rootContainer?.addView(keyboardContainer, kbParams)
+        rootContainer?.addView(keyboardContainer, FrameLayout.LayoutParams(-1, -2).apply { gravity = Gravity.BOTTOM })
         
-        // Touch layer
-        val touchLayer = View(this).apply {
+        // Touch layer - ULTRA FAST
+        rootContainer?.addView(View(this).apply {
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = FrameLayout.LayoutParams(-1, -1)
             setOnTouchListener { _, event -> handleTouch(event) }
-        }
-        rootContainer?.addView(touchLayer)
+        })
         
-        // Set height
         val emojiH = if (showEmojiRow) dp(44) else 0
-        val totalH = emojiH + dp(keyboardHeight) + navigationBarHeight
-        rootContainer?.layoutParams = ViewGroup.LayoutParams(-1, totalH)
+        rootContainer?.layoutParams = ViewGroup.LayoutParams(-1, emojiH + dp(keyboardHeight) + navigationBarHeight)
         rootContainer?.setPadding(0, 0, 0, navigationBarHeight)
-        
         rootContainer?.post { updateKeyBounds() }
         
         return rootContainer!!
@@ -704,27 +442,21 @@ class FastKeyboardService : InputMethodService() {
             if (!path.isNullOrEmpty()) {
                 val file = File(path)
                 if (file.exists()) {
-                    val bmp = BitmapFactory.decodeFile(path)
-                    if (bmp != null) {
-                        backgroundImageView?.setImageBitmap(bmp)
+                    BitmapFactory.decodeFile(path)?.let {
+                        backgroundImageView?.setImageBitmap(it)
                         backgroundImageView?.alpha = 0.3f
                         return
                     }
                 }
             }
             backgroundImageView?.setImageBitmap(null)
-        } catch (_: Exception) {
-            backgroundImageView?.setImageBitmap(null)
-        }
+        } catch (_: Exception) { backgroundImageView?.setImageBitmap(null) }
     }
     
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
         super.onStartInputView(info, restarting)
-        isShift = false
-        isCaps = false
-        isSymbols = false
-        clearSinglishBuffer()
-        
+        isShift = false; isCaps = false; isSymbols = false
+        clearBuffer()
         info?.let {
             val cls = it.inputType and EditorInfo.TYPE_MASK_CLASS
             isNumbers = (cls == EditorInfo.TYPE_CLASS_NUMBER || cls == EditorInfo.TYPE_CLASS_PHONE)
@@ -734,36 +466,16 @@ class FastKeyboardService : InputMethodService() {
     
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        hidePreview()
-        clearSinglishBuffer()
+        hidePreview(); clearBuffer()
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // TOUCH HANDLING
+    // ULTRA FAST TOUCH HANDLING
     // ═══════════════════════════════════════════════════════════════════════════
     
-    private fun updateKeyBounds() {
-        keyInfoList.forEach { it.updateBounds() }
-    }
+    private fun updateKeyBounds() { keyInfoList.forEach { it.updateBounds() } }
     
-    private fun findKey(x: Float, y: Float): KeyInfo? {
-        // Direct hit
-        keyInfoList.find { it.contains(x, y) }?.let { return it }
-        
-        // Nearest within threshold
-        var minDist = Float.MAX_VALUE
-        var nearest: KeyInfo? = null
-        val maxDist = dp(40).toFloat()
-        
-        keyInfoList.forEach { ki ->
-            val dist = ki.distanceTo(x, y)
-            if (dist < minDist && dist < maxDist) {
-                minDist = dist
-                nearest = ki
-            }
-        }
-        return nearest
-    }
+    private fun findKey(x: Float, y: Float): KeyInfo? = keyInfoList.find { it.contains(x, y) }
     
     private fun handleTouch(event: MotionEvent): Boolean {
         val x = event.rawX
@@ -771,27 +483,23 @@ class FastKeyboardService : InputMethodService() {
         
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                hasProcessedCurrentTouch = false
                 findKey(x, y)?.let { key ->
                     currentPressedKey = key
-                    applyPressVisual(key)
+                    applyPress(key)
                     showPreview(key)
-                    
-                    if (key.key == "⌫") {
-                        startRepeat(key.key)
-                    }
+                    if (key.key == "⌫") startRepeat(key.key)
                 }
             }
             
             MotionEvent.ACTION_MOVE -> {
-                findKey(x, y)?.let { moveKey ->
-                    if (moveKey != currentPressedKey) {
-                        currentPressedKey?.let { resetKeyVisual(it) }
-                        hasProcessedCurrentTouch = false
-                        
-                        currentPressedKey = moveKey
-                        applyPressVisual(moveKey)
-                        showPreview(moveKey)
+                findKey(x, y)?.let { newKey ->
+                    if (newKey != currentPressedKey) {
+                        currentPressedKey?.let { resetPress(it) }
+                        currentPressedKey = newKey
+                        applyPress(newKey)
+                        showPreview(newKey)
+                        stopRepeat()
+                        if (newKey.key == "⌫") startRepeat(newKey.key)
                     }
                 }
             }
@@ -799,293 +507,163 @@ class FastKeyboardService : InputMethodService() {
             MotionEvent.ACTION_UP -> {
                 hidePreview()
                 stopRepeat()
-                
                 currentPressedKey?.let { key ->
-                    if (!hasProcessedCurrentTouch) {
+                    // ULTRA FAST - No debounce for regular keys
+                    if (isActionKey(key.key)) {
                         val now = System.currentTimeMillis()
-                        
-                        val debounce = if (isActionKey(key.key)) ACTION_KEY_DEBOUNCE else DEBOUNCE_TIME
-                        val lastTime = if (isActionKey(key.key)) lastActionKeyTime else lastKeyPressTime
-                        
-                        if (now - lastTime >= debounce) {
-                            if (isActionKey(key.key)) lastActionKeyTime = now else lastKeyPressTime = now
-                            
+                        if (now - lastActionKeyTime >= ACTION_KEY_DEBOUNCE) {
+                            lastActionKeyTime = now
                             vibrate()
                             processKey(key.key)
-                            hasProcessedCurrentTouch = true
                         }
+                    } else {
+                        vibrate()
+                        processKey(key.key)
                     }
-                    resetKeyVisual(key)
+                    resetPress(key)
                 }
-                
                 currentPressedKey = null
-                resetAllVisuals()
             }
             
             MotionEvent.ACTION_CANCEL -> {
-                hidePreview()
-                stopRepeat()
-                resetAllVisuals()
+                hidePreview(); stopRepeat()
+                currentPressedKey?.let { resetPress(it) }
                 currentPressedKey = null
-                hasProcessedCurrentTouch = false
             }
         }
         return true
     }
     
-    private fun isActionKey(key: String): Boolean =
-        key in listOf("⇧", "123", "ABC", "#+=", "🌐")
-    
-    private fun applyPressVisual(ki: KeyInfo) {
-        ki.view.alpha = 0.6f
-        ki.view.scaleX = 0.94f
-        ki.view.scaleY = 0.94f
-    }
-    
-    private fun resetKeyVisual(ki: KeyInfo) {
-        ki.view.alpha = 1f
-        ki.view.scaleX = 1f
-        ki.view.scaleY = 1f
-    }
-    
-    private fun resetAllVisuals() {
-        keyInfoList.forEach { resetKeyVisual(it) }
-    }
+    private fun isActionKey(key: String) = key in listOf("⇧", "123", "ABC", "#+=", "🌐")
+    private fun applyPress(ki: KeyInfo) { ki.view.alpha = 0.6f; ki.view.scaleX = 0.95f; ki.view.scaleY = 0.95f }
+    private fun resetPress(ki: KeyInfo) { ki.view.alpha = 1f; ki.view.scaleX = 1f; ki.view.scaleY = 1f }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // KEY PREVIEW
+    // PREVIEW
     // ═══════════════════════════════════════════════════════════════════════════
     
     private fun showPreview(ki: KeyInfo) {
-        if (isSpecialKey(ki.key)) {
-            hidePreview()
-            return
-        }
+        if (isSpecialKey(ki.key)) { hidePreview(); return }
         
-        val text = getPreviewText(ki.key)
-        if (text.isEmpty()) {
-            hidePreview()
-            return
-        }
+        val text = if (isSinhalaMode && ki.key.length == 1 && ki.key[0].isLetter()) {
+            (if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels)[ki.key.lowercase()] ?: ki.key
+        } else if (ki.key.length == 1 && ki.key[0].isLetter()) {
+            if (isShift || isCaps) ki.key.uppercase() else ki.key.lowercase()
+        } else ki.key
+        
+        if (text.isEmpty() || text == "SPACE") { hidePreview(); return }
         
         previewText?.text = text
         previewText?.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
         
-        val keyW = ki.view.width
-        val keyH = ki.view.height
-        val previewW = maxOf(keyW, (previewText?.measuredWidth ?: 0) + dp(16))
-        val previewH = (keyH * 1.6f).toInt()
+        val loc = IntArray(2); ki.view.getLocationOnScreen(loc)
+        val pw = maxOf(ki.view.width, (previewText?.measuredWidth ?: 0) + dp(16))
+        val ph = (ki.view.height * 1.5f).toInt()
+        var px = loc[0] + (ki.view.width - pw) / 2
+        val py = loc[1] - ph - dp(6)
         
-        val loc = IntArray(2)
-        ki.view.getLocationOnScreen(loc)
-        
-        var px = loc[0] + (keyW - previewW) / 2
-        var py = loc[1] - previewH - dp(8)
-        
-        val screenW = resources.displayMetrics.widthPixels
-        if (px < dp(4)) px = dp(4)
-        if (px + previewW > screenW - dp(4)) px = screenW - previewW - dp(4)
-        if (py < dp(10)) py = dp(10)
+        val sw = resources.displayMetrics.widthPixels
+        px = px.coerceIn(dp(4), sw - pw - dp(4))
         
         try {
-            if (previewPopup?.isShowing == true) {
-                previewPopup?.update(px, py, previewW, previewH)
-            } else {
-                previewPopup?.width = previewW
-                previewPopup?.height = previewH
-                previewPopup?.showAtLocation(rootContainer, Gravity.NO_GRAVITY, px, py)
-            }
+            if (previewPopup?.isShowing == true) previewPopup?.update(px, py, pw, ph)
+            else { previewPopup?.width = pw; previewPopup?.height = ph; previewPopup?.showAtLocation(rootContainer, Gravity.NO_GRAVITY, px, py) }
         } catch (_: Exception) {}
     }
     
-    private fun hidePreview() {
-        try {
-            if (previewPopup?.isShowing == true) previewPopup?.dismiss()
-        } catch (_: Exception) {}
-    }
-    
-    private fun getPreviewText(key: String): String {
-        if (key == "SPACE") return ""
-        
-        if (isSinhalaMode && key.length == 1 && key[0].isLetter()) {
-            val labels = if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels
-            labels[key.lowercase()]?.let { return it }
-        }
-        
-        return if (key.length == 1 && key[0].isLetter()) {
-            if (isShift || isCaps) key.uppercase() else key.lowercase()
-        } else key
-    }
+    private fun hidePreview() { try { if (previewPopup?.isShowing == true) previewPopup?.dismiss() } catch (_: Exception) {} }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // KEYBOARD BUILDING
+    // KEYBOARD BUILD
     // ═══════════════════════════════════════════════════════════════════════════
     
     private fun createEmojiRow(): LinearLayout {
         return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(-1, dp(44))
             setPadding(dp(4), dp(4), dp(4), dp(4))
-            
-            val emojis = settings.quickEmojis
-            emojis.split(",").forEach { emoji ->
+            settings.quickEmojis.split(",").forEach { emoji ->
                 val e = emoji.trim()
-                if (e.isNotEmpty()) {
-                    addView(TextView(this@FastKeyboardService).apply {
-                        text = e
-                        this.gravity = Gravity.CENTER
-                        setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
-                        layoutParams = LinearLayout.LayoutParams(0, -1, 1f).apply {
-                            setMargins(dp(2), 0, dp(2), 0)
-                        }
-                        background = GradientDrawable().apply {
-                            setColor(parseColor(colorKeyNormal))
-                            cornerRadius = dp(8).toFloat()
-                        }
-                        setOnClickListener {
-                            vibrate()
-                            flushSinglishBuffer()
-                            commitDirect(e)
-                        }
-                    })
-                }
+                if (e.isNotEmpty()) addView(TextView(this@FastKeyboardService).apply {
+                    text = e; this.gravity = Gravity.CENTER
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+                    layoutParams = LinearLayout.LayoutParams(0, -1, 1f).apply { setMargins(dp(2), 0, dp(2), 0) }
+                    background = GradientDrawable().apply { setColor(parseColor(colorKeyNormal)); cornerRadius = dp(8).toFloat() }
+                    setOnClickListener { vibrate(); flushBuffer(); currentInputConnection?.commitText(e, 1) }
+                })
             }
         }
     }
     
     private fun createKeyboard(): LinearLayout {
         keyInfoList.clear()
-        
         return LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             layoutParams = LinearLayout.LayoutParams(-1, dp(keyboardHeight))
             setPadding(dp(3), dp(6), dp(3), dp(6))
-            
-            val layout = when {
-                isSymbols -> layoutSymbols
-                isNumbers -> layoutNumbers
-                else -> layoutLetters
-            }
-            
-            layout.forEachIndexed { rowIdx, row ->
-                addView(createRow(row, rowIdx))
-            }
+            val layout = when { isSymbols -> layoutSymbols; isNumbers -> layoutNumbers; else -> layoutLetters }
+            layout.forEachIndexed { idx, row -> addView(createRow(row, idx)) }
         }
     }
     
     private fun createRow(keys: Array<String>, rowIdx: Int): LinearLayout {
         return LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
-            val sidePad = if (rowIdx == 1) dp(14) else 0
-            setPadding(sidePad, dp(2), sidePad, dp(2))
-            
-            keys.forEach { key -> addView(createKey(key)) }
+            setPadding(if (rowIdx == 1) dp(14) else 0, dp(2), if (rowIdx == 1) dp(14) else 0, dp(2))
+            keys.forEach { addView(createKey(it)) }
         }
     }
     
     private fun createKey(key: String): View {
         val container = FrameLayout(this)
-        val tv = TextView(this).apply {
-            gravity = Gravity.CENTER
-            typeface = Typeface.DEFAULT_BOLD
-            includeFontPadding = false
-        }
+        val tv = TextView(this).apply { gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD; includeFontPadding = false }
         
-        val (display, textColor, textSize) = getKeyDisplayConfig(key)
-        tv.text = display
-        tv.setTextColor(textColor)
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
+        val (display, textColor, textSize) = getKeyConfig(key)
+        tv.text = display; tv.setTextColor(textColor); tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
         
-        // Sinhala label
         if (isSinhalaMode && key.length == 1 && key[0].isLetter()) {
-            val labels = if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels
-            labels[key.lowercase()]?.let { lbl ->
+            (if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels)[key.lowercase()]?.let { lbl ->
                 container.addView(TextView(this).apply {
-                    text = lbl
-                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
-                    setTextColor(Color.parseColor("#888888"))
-                    layoutParams = FrameLayout.LayoutParams(-2, -2).apply {
-                        gravity = Gravity.TOP or Gravity.END
-                        setMargins(0, dp(2), dp(3), 0)
-                    }
+                    text = lbl; setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f); setTextColor(Color.parseColor("#888888"))
+                    layoutParams = FrameLayout.LayoutParams(-2, -2).apply { gravity = Gravity.TOP or Gravity.END; setMargins(0, dp(2), dp(3), 0) }
                 })
             }
         }
         
-        val weight = getWeight(key)
-        container.layoutParams = LinearLayout.LayoutParams(0, -1, weight).apply {
-            setMargins(dp(keyGap), dp(keyGap), dp(keyGap), dp(keyGap))
-        }
-        
+        container.layoutParams = LinearLayout.LayoutParams(0, -1, getWeight(key)).apply { setMargins(dp(keyGap), dp(keyGap), dp(keyGap), dp(keyGap)) }
         container.addView(tv, FrameLayout.LayoutParams(-1, -1))
         container.background = createKeyBg(key)
-        
         keyInfoList.add(KeyInfo(key, container))
         return container
     }
     
-    private fun getKeyDisplayConfig(key: String): Triple<String, Int, Float> {
-        val defaultColor = parseColor(colorText)
-        
+    private fun getKeyConfig(key: String): Triple<String, Int, Float> {
+        val def = parseColor(colorText)
         return when (key) {
             "↵" -> Triple("↵", Color.WHITE, 22f)
-            "⇧" -> when {
-                isCaps -> Triple("⇪", Color.parseColor("#10b981"), 24f)
-                isShift -> Triple("⬆", Color.parseColor("#3b82f6"), 24f)
-                else -> Triple("⇧", defaultColor, 24f)
-            }
-            "⌫" -> Triple("⌫", defaultColor, 22f)
-            "SPACE" -> Triple(
-                if (isSinhalaMode) "සිංහල" else "English",
-                Color.parseColor("#666666"),
-                11f
-            )
-            "🌐" -> Triple(
-                if (isSinhalaMode) "සිං" else "EN",
-                if (isSinhalaMode) Color.parseColor("#10b981") else Color.parseColor("#3b82f6"),
-                12f
-            )
-            "✨" -> Triple("✨", defaultColor, 18f)
-            "123", "ABC", "#+=" -> Triple(key, defaultColor, 13f)
-            else -> {
-                val display = if (key.length == 1 && key[0].isLetter()) {
-                    if (isShift || isCaps) key.uppercase() else key.lowercase()
-                } else key
-                Triple(display, defaultColor, keyTextSize.toFloat())
-            }
+            "⇧" -> when { isCaps -> Triple("⇪", Color.parseColor("#10b981"), 24f); isShift -> Triple("⬆", Color.parseColor("#3b82f6"), 24f); else -> Triple("⇧", def, 24f) }
+            "⌫" -> Triple("⌫", def, 22f)
+            "SPACE" -> Triple(if (isSinhalaMode) "සිංහල" else "English", Color.parseColor("#666666"), 11f)
+            "🌐" -> Triple(if (isSinhalaMode) "සිං" else "EN", if (isSinhalaMode) Color.parseColor("#10b981") else Color.parseColor("#3b82f6"), 12f)
+            "✨" -> Triple("✨", def, 18f)
+            "123", "ABC", "#+=" -> Triple(key, def, 13f)
+            else -> Triple(if (key.length == 1 && key[0].isLetter()) (if (isShift || isCaps) key.uppercase() else key.lowercase()) else key, def, keyTextSize.toFloat())
         }
     }
     
-    private fun isSpecialKey(key: String): Boolean =
-        key in listOf("⇧", "⌫", "↵", "SPACE", "123", "ABC", "#+=", "🌐", "✨")
-    
-    private fun getWeight(key: String): Float = when (key) {
-        "SPACE" -> 3.5f
-        "⇧", "⌫" -> 1.5f
-        "↵", "123", "ABC", "#+=" -> 1.3f
-        else -> 1f
-    }
+    private fun isSpecialKey(key: String) = key in listOf("⇧", "⌫", "↵", "SPACE", "123", "ABC", "#+=", "🌐", "✨")
+    private fun getWeight(key: String) = when (key) { "SPACE" -> 3.5f; "⇧", "⌫" -> 1.5f; "↵", "123", "ABC", "#+=" -> 1.3f; else -> 1f }
     
     private fun createKeyBg(key: String): GradientDrawable {
         val color = when (key) {
             "↵" -> colorKeyEnter
-            "⇧" -> when {
-                isCaps -> "#10b981"
-                isShift -> "#3b82f6"
-                else -> colorKeySpecial
-            }
+            "⇧" -> when { isCaps -> "#10b981"; isShift -> "#3b82f6"; else -> colorKeySpecial }
             "⌫", "123", "ABC", "#+=", "🌐", "✨" -> colorKeySpecial
             "SPACE" -> colorKeySpace
             else -> colorKeyNormal
         }
-        
-        return GradientDrawable().apply {
-            setColor(parseColor(color))
-            cornerRadius = dp(keyRadius).toFloat()
-        }
+        return GradientDrawable().apply { setColor(parseColor(color)); cornerRadius = dp(keyRadius).toFloat() }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1094,119 +672,65 @@ class FastKeyboardService : InputMethodService() {
     
     private fun processKey(key: String) {
         val ic = currentInputConnection ?: return
-        
         when (key) {
             "⇧" -> handleShift()
             "⌫" -> handleBackspace(ic)
-            "↵" -> { flushSinglishBuffer(); handleEnter(ic) }
-            "SPACE" -> { flushSinglishBuffer(); ic.commitText(" ", 1) }
-            ",", "." -> { flushSinglishBuffer(); ic.commitText(key, 1) }
-            "123" -> { flushSinglishBuffer(); isNumbers = true; isSymbols = false; rebuildKeyboard() }
-            "ABC" -> { flushSinglishBuffer(); isNumbers = false; isSymbols = false; rebuildKeyboard() }
-            "#+=" -> { flushSinglishBuffer(); isSymbols = true; rebuildKeyboard() }
-            "🌐" -> { flushSinglishBuffer(); isSinhalaMode = !isSinhalaMode; rebuildKeyboard() }
-            "✨" -> { flushSinglishBuffer(); openPopup() }
+            "↵" -> { flushBuffer(); handleEnter(ic) }
+            "SPACE" -> { flushBuffer(); ic.commitText(" ", 1) }
+            ",", "." -> { flushBuffer(); ic.commitText(key, 1) }
+            "123" -> { flushBuffer(); isNumbers = true; isSymbols = false; rebuildKeyboard() }
+            "ABC" -> { flushBuffer(); isNumbers = false; isSymbols = false; rebuildKeyboard() }
+            "#+=" -> { flushBuffer(); isSymbols = true; rebuildKeyboard() }
+            "🌐" -> { flushBuffer(); isSinhalaMode = !isSinhalaMode; rebuildKeyboard() }
+            "✨" -> { flushBuffer(); openPopup() }
             else -> handleChar(ic, key)
         }
     }
     
     private fun handleShift() {
-        when {
-            isCaps -> { isCaps = false; isShift = false }
-            isShift -> isCaps = true
-            else -> isShift = true
-        }
+        when { isCaps -> { isCaps = false; isShift = false }; isShift -> isCaps = true; else -> isShift = true }
         rebuildKeyboard()
     }
     
     private fun handleBackspace(ic: InputConnection) {
         if (englishBuffer.isNotEmpty()) {
-            // Delete current Sinhala and recompute
-            if (currentSinhalaLength > 0) {
-                ic.deleteSurroundingText(currentSinhalaLength, 0)
-            }
+            if (currentSinhalaLength > 0) ic.deleteSurroundingText(currentSinhalaLength, 0)
             englishBuffer.deleteCharAt(englishBuffer.length - 1)
-            
             if (englishBuffer.isNotEmpty()) {
-                val newSinhala = convertToSinhala(englishBuffer.toString())
-                ic.commitText(newSinhala, 1)
-                currentSinhalaLength = newSinhala.length
-            } else {
-                currentSinhalaLength = 0
-            }
-        } else {
-            ic.deleteSurroundingText(1, 0)
-        }
+                val s = convertToSinhala(englishBuffer.toString())
+                ic.commitText(s, 1); currentSinhalaLength = s.length
+            } else currentSinhalaLength = 0
+        } else ic.deleteSurroundingText(1, 0)
     }
     
     private fun handleEnter(ic: InputConnection) {
-        val ei = currentInputEditorInfo
-        val action = ei?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-        
-        if (action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED) {
-            ic.commitText("\n", 1)
-        } else {
-            ic.performEditorAction(action)
-        }
+        val action = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
+        if (action == EditorInfo.IME_ACTION_NONE || action == EditorInfo.IME_ACTION_UNSPECIFIED) ic.commitText("\n", 1)
+        else ic.performEditorAction(action)
     }
     
     private fun handleChar(ic: InputConnection, key: String) {
         var c = key[0]
-        if ((isShift || isCaps) && c.isLetter()) {
-            c = c.uppercaseChar()
-        }
+        if ((isShift || isCaps) && c.isLetter()) c = c.uppercaseChar()
         
-        if (isSinhalaMode && c.isLetter()) {
-            processSinglish(ic, c)
-        } else {
-            flushSinglishBuffer()
-            ic.commitText(c.toString(), 1)
-        }
+        if (isSinhalaMode && c.isLetter()) processSinglish(ic, c)
+        else { flushBuffer(); ic.commitText(c.toString(), 1) }
         
-        autoResetShift()
+        if (isShift && !isCaps) { isShift = false; rebuildKeyboard() }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // SINGLISH TRANSLITERATION ENGINE
+    // SINGLISH ENGINE - FIXED
     // ═══════════════════════════════════════════════════════════════════════════
     
-    /**
-     * Process Singlish Input
-     * 
-     * Uses "Greedy Back-Matching" algorithm:
-     * 1. Add character to buffer
-     * 2. Delete current Sinhala output
-     * 3. Reconvert entire buffer
-     * 4. Commit new Sinhala
-     */
     private fun processSinglish(ic: InputConnection, c: Char) {
-        // Delete current Sinhala output
-        if (currentSinhalaLength > 0) {
-            ic.deleteSurroundingText(currentSinhalaLength, 0)
-        }
-        
-        // Add new character to buffer
+        if (currentSinhalaLength > 0) ic.deleteSurroundingText(currentSinhalaLength, 0)
         englishBuffer.append(c)
-        
-        // Convert entire buffer to Sinhala
-        val sinhala = convertToSinhala(englishBuffer.toString())
-        
-        // Commit new Sinhala
-        ic.commitText(sinhala, 1)
-        currentSinhalaLength = sinhala.length
+        val s = convertToSinhala(englishBuffer.toString())
+        ic.commitText(s, 1)
+        currentSinhalaLength = s.length
     }
     
-    /**
-     * Convert English/Singlish to Sinhala
-     * 
-     * PRIORITY ORDER:
-     * 1. Special Z-Combinations (5-4 chars)
-     * 2. 3-Letter Combinations
-     * 3. 2-Letter Combinations
-     * 4. 1-Letter Combinations
-     * 
-     * Algorithm: Greedy longest-match-first
-     */
     private fun convertToSinhala(english: String): String {
         val result = StringBuilder()
         var i = 0
@@ -1218,326 +742,119 @@ class FastKeyboardService : InputMethodService() {
             var isConsonant = false
             var needsHal = false
             
-            // ═══════════════════════════════════════════════════════════════
-            // PRIORITY 1: Special Z-Combinations (4-5 chars)
-            // ═══════════════════════════════════════════════════════════════
+            // Priority 1: Special (4-5 chars)
             for (len in minOf(5, english.length - i) downTo 3) {
                 val sub = english.substring(i, i + len)
-                consonantsSpecial[sub]?.let {
-                    matched = it
-                    matchLen = len
-                    isConsonant = true
-                    needsHal = !sub.endsWith("a")
-                    return@let
-                }
+                consonantsSpecial[sub]?.let { matched = it; matchLen = len; isConsonant = true; needsHal = !sub.endsWith("a") }
                 if (matched != null) break
             }
             
-            // ═══════════════════════════════════════════════════════════════
-            // PRIORITY 2: 3-Letter Combinations
-            // ═══════════════════════════════════════════════════════════════
+            // Priority 2: 3 letter
             if (matched == null && i + 3 <= english.length) {
                 val sub = english.substring(i, i + 3)
-                
-                // 3-letter consonants
-                consonants3[sub]?.let {
-                    matched = it
-                    matchLen = 3
-                    isConsonant = true
-                    needsHal = !sub.endsWith("a")
+                consonants3[sub]?.let { matched = it; matchLen = 3; isConsonant = true; needsHal = !sub.endsWith("a") }
+                if (matched == null && lastWasConsonant) vowelModifiers[sub]?.let {
+                    if (result.isNotEmpty() && result.endsWith(HAL)) result.deleteCharAt(result.length - 1)
+                    matched = it; matchLen = 3; isConsonant = false; lastWasConsonant = false
                 }
-                
-                // 3-letter vowel modifier (after consonant)
-                if (matched == null && lastWasConsonant) {
-                    vowelModifiers[sub]?.let {
-                        if (result.isNotEmpty() && result.endsWith(HAL)) {
-                            result.deleteCharAt(result.length - 1)
-                        }
-                        matched = it
-                        matchLen = 3
-                        isConsonant = false
-                        lastWasConsonant = false
-                    }
-                }
-                
-                // 3-letter standalone vowel
-                if (matched == null && !lastWasConsonant) {
-                    vowelsStandalone[sub]?.let {
-                        matched = it
-                        matchLen = 3
-                        isConsonant = false
-                    }
-                }
+                if (matched == null && !lastWasConsonant) vowelsStandalone[sub]?.let { matched = it; matchLen = 3; isConsonant = false }
             }
             
-            // ═══════════════════════════════════════════════════════════════
-            // PRIORITY 3: 2-Letter Combinations
-            // ═══════════════════════════════════════════════════════════════
+            // Priority 3: 2 letter
             if (matched == null && i + 2 <= english.length) {
                 val sub = english.substring(i, i + 2)
-                
-                // 2-letter consonants
-                consonants2[sub]?.let {
-                    matched = it
-                    matchLen = 2
-                    isConsonant = true
-                    // Check if it ends with 'a' or is special
-                    needsHal = !sub.endsWith("a") && sub !in listOf("Lu", "zn", "zb")
+                consonants2[sub]?.let { matched = it; matchLen = 2; isConsonant = true; needsHal = sub !in listOf("Lu", "zn", "zb") && !sub.endsWith("a") }
+                if (matched == null && lastWasConsonant) vowelModifiers[sub]?.let {
+                    if (result.isNotEmpty() && result.endsWith(HAL)) result.deleteCharAt(result.length - 1)
+                    matched = it; matchLen = 2; isConsonant = false; lastWasConsonant = false
                 }
-                
-                // 2-letter vowel modifier (after consonant)
-                if (matched == null && lastWasConsonant) {
-                    vowelModifiers[sub]?.let {
-                        if (result.isNotEmpty() && result.endsWith(HAL)) {
-                            result.deleteCharAt(result.length - 1)
-                        }
-                        matched = it
-                        matchLen = 2
-                        isConsonant = false
-                        lastWasConsonant = false
-                    }
-                }
-                
-                // 2-letter standalone vowel
-                if (matched == null && !lastWasConsonant) {
-                    vowelsStandalone[sub]?.let {
-                        matched = it
-                        matchLen = 2
-                        isConsonant = false
-                    }
-                }
+                if (matched == null && !lastWasConsonant) vowelsStandalone[sub]?.let { matched = it; matchLen = 2; isConsonant = false }
             }
             
-            // ═══════════════════════════════════════════════════════════════
-            // PRIORITY 4: 1-Letter
-            // ═══════════════════════════════════════════════════════════════
+            // Priority 4: 1 letter
             if (matched == null && i < english.length) {
                 val sub = english.substring(i, i + 1)
                 val ch = sub[0]
                 
-                // Special consonants (no hal)
-                specialConsonants[sub]?.let {
-                    matched = it
-                    matchLen = 1
-                    isConsonant = false
+                specialConsonants[sub]?.let { matched = it; matchLen = 1; isConsonant = false }
+                if (matched == null) consonants1[sub]?.let { matched = it; matchLen = 1; isConsonant = true; needsHal = true }
+                if (matched == null && lastWasConsonant) vowelModifiers[sub]?.let {
+                    if (result.isNotEmpty() && result.endsWith(HAL)) result.deleteCharAt(result.length - 1)
+                    matched = it; matchLen = 1; isConsonant = false; lastWasConsonant = false
                 }
+                if (matched == null && !lastWasConsonant) vowelsStandalone[sub]?.let { matched = it; matchLen = 1; isConsonant = false }
                 
-                // Regular consonant
-                if (matched == null) {
-                    consonants1[sub]?.let {
-                        matched = it
-                        matchLen = 1
-                        isConsonant = true
-                        needsHal = true
-                    }
-                }
-                
-                // Vowel modifier (after consonant)
-                if (matched == null && lastWasConsonant) {
-                    vowelModifiers[sub]?.let {
-                        if (result.isNotEmpty() && result.endsWith(HAL)) {
-                            result.deleteCharAt(result.length - 1)
-                        }
-                        matched = it
-                        matchLen = 1
-                        isConsonant = false
-                        lastWasConsonant = false
-                    }
-                }
-                
-                // Standalone vowel
-                if (matched == null && !lastWasConsonant) {
-                    vowelsStandalone[sub]?.let {
-                        matched = it
-                        matchLen = 1
-                        isConsonant = false
-                    }
-                }
-                
-                // ═══════════════════════════════════════════════════════════
-                // SPECIAL: Yansaya (y after consonant)
-                // ═══════════════════════════════════════════════════════════
+                // Yansaya
                 if (matched == null && (ch == 'y' || ch == 'Y') && lastWasConsonant) {
-                    if (result.isNotEmpty() && result.endsWith(HAL)) {
-                        result.deleteCharAt(result.length - 1)
-                        result.append(YANSAYA)
-                    }
-                    matchLen = 1
-                    isConsonant = false
-                    lastWasConsonant = false
-                    i += matchLen
-                    continue
+                    if (result.isNotEmpty() && result.endsWith(HAL)) { result.deleteCharAt(result.length - 1); result.append(YANSAYA) }
+                    matchLen = 1; lastWasConsonant = false; i += matchLen; continue
                 }
                 
-                // ═══════════════════════════════════════════════════════════
-                // SPECIAL: Rakaransaya (r after consonant + vowel follows)
-                // ═══════════════════════════════════════════════════════════
-                if (matched == null && (ch == 'r' || ch == 'R') && lastWasConsonant && i + 2 <= english.length) {
-                    val next = english[i + 1]
-                    if (next in "aeiouAEIOU") {
-                        if (result.isNotEmpty() && result.endsWith(HAL)) {
-                            result.deleteCharAt(result.length - 1)
-                            result.append(RAKARANSAYA)
-                        }
-                        matchLen = 1
-                        isConsonant = true
-                        needsHal = false
-                        lastWasConsonant = true
-                        i += matchLen
-                        continue
-                    }
+                // Rakaransaya
+                if (matched == null && (ch == 'r' || ch == 'R') && lastWasConsonant && i + 1 < english.length && english[i + 1] in "aeiouAEIOU") {
+                    if (result.isNotEmpty() && result.endsWith(HAL)) { result.deleteCharAt(result.length - 1); result.append(RAKARANSAYA) }
+                    matchLen = 1; lastWasConsonant = true; i += matchLen; continue
                 }
             }
             
-            // ═══════════════════════════════════════════════════════════════
-            // APPLY MATCH
-            // ═══════════════════════════════════════════════════════════════
             if (matched != null) {
                 result.append(matched)
-                if (isConsonant && needsHal) {
-                    result.append(HAL)
-                    lastWasConsonant = true
-                } else if (!isConsonant) {
-                    lastWasConsonant = false
-                } else {
-                    lastWasConsonant = isConsonant
-                }
+                if (isConsonant && needsHal) { result.append(HAL); lastWasConsonant = true }
+                else if (!isConsonant) lastWasConsonant = false
+                else lastWasConsonant = isConsonant
                 i += matchLen
-            } else {
-                // No match - output as-is
-                result.append(english[i])
-                lastWasConsonant = false
-                i++
-            }
+            } else { result.append(english[i]); lastWasConsonant = false; i++ }
         }
-        
         return result.toString()
     }
     
-    private fun flushSinglishBuffer() {
-        englishBuffer.clear()
-        currentSinhalaLength = 0
-    }
-    
-    private fun clearSinglishBuffer() {
-        englishBuffer.clear()
-        currentSinhalaLength = 0
-    }
-    
-    private fun commitDirect(text: String) {
-        currentInputConnection?.commitText(text, 1)
-    }
-    
-    private fun autoResetShift() {
-        if (isShift && !isCaps) {
-            isShift = false
-            rebuildKeyboard()
-        }
-    }
+    private fun flushBuffer() { englishBuffer.clear(); currentSinhalaLength = 0 }
+    private fun clearBuffer() { englishBuffer.clear(); currentSinhalaLength = 0 }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // HELPER FUNCTIONS
+    // HELPERS
     // ═══════════════════════════════════════════════════════════════════════════
     
     private fun startRepeat(key: String) {
         isRepeating = true
         repeatRunnable = object : Runnable {
             override fun run() {
-                if (isRepeating) {
-                    processKey(key)
-                    vibrate()
-                    handler.postDelayed(this, repeatInterval.toLong())
-                }
+                if (isRepeating) { processKey(key); vibrate(); handler.postDelayed(this, repeatInterval.toLong()) }
             }
         }
         handler.postDelayed(repeatRunnable!!, longPressDelay.toLong())
     }
     
-    private fun stopRepeat() {
-        isRepeating = false
-        repeatRunnable?.let { handler.removeCallbacks(it) }
-    }
+    private fun stopRepeat() { isRepeating = false; repeatRunnable?.let { handler.removeCallbacks(it) } }
     
-    private fun vibrate() {
-        if (!vibrateEnabled) return
-        vibrateMs(vibrateDuration)
-    }
+    private fun vibrate() { if (vibrateEnabled) vibrateMs(vibrateDuration) }
     
     private fun vibrateMs(ms: Int) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                vibrator?.vibrate(VibrationEffect.createOneShot(
-                    ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
-            } else {
-                @Suppress("DEPRECATION")
-                vibrator?.vibrate(ms.toLong())
-            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator?.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+            else @Suppress("DEPRECATION") vibrator?.vibrate(ms.toLong())
         } catch (_: Exception) {}
     }
     
     private fun openPopup() {
-        try {
-            val intent = Intent(this, PopupActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            startActivity(intent)
-        } catch (_: Exception) {}
+        try { startActivity(Intent(this, PopupActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (_: Exception) {}
     }
     
     private fun rebuildKeyboard() {
         rootContainer ?: return
-        
-        hidePreview()
-        keyInfoList.clear()
-        
+        hidePreview(); keyInfoList.clear()
         keyboardContainer?.let { rootContainer?.removeView(it) }
         loadBackgroundImage()
-        
-        keyboardContainer = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-        
+        keyboardContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         if (showEmojiRow) keyboardContainer?.addView(createEmojiRow())
-        keyboardView = createKeyboard()
-        keyboardContainer?.addView(keyboardView)
-        
-        val params = FrameLayout.LayoutParams(-1, -2).apply {
-            gravity = Gravity.BOTTOM
-        }
-        rootContainer?.addView(keyboardContainer, 1, params)
-        
+        keyboardView = createKeyboard(); keyboardContainer?.addView(keyboardView)
+        rootContainer?.addView(keyboardContainer, 1, FrameLayout.LayoutParams(-1, -2).apply { gravity = Gravity.BOTTOM })
         val emojiH = if (showEmojiRow) dp(44) else 0
-        val totalH = emojiH + dp(keyboardHeight) + navigationBarHeight
-        rootContainer?.layoutParams?.height = totalH
+        rootContainer?.layoutParams?.height = emojiH + dp(keyboardHeight) + navigationBarHeight
         rootContainer?.setPadding(0, 0, 0, navigationBarHeight)
-        
         rootContainer?.post { updateKeyBounds() }
     }
     
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
-    
-    private fun parseColor(color: String): Int = try {
-        Color.parseColor(color)
-    } catch (_: Exception) {
-        Color.BLACK
-    }
-    
-    // ═══════════════════════════════════════════════════════════════════════════
-    // PUBLIC API FOR EXTERNAL ACCESS (via Broadcast)
-    // ═══════════════════════════════════════════════════════════════════════════
-    
-    /**
-     * Get text before cursor - Accessible via Broadcast response
-     */
-    fun getTextBeforeCursor(count: Int): String {
-        return currentInputConnection?.getTextBeforeCursor(count, 0)?.toString() ?: ""
-    }
-    
-    /**
-     * Get text after cursor - Accessible via Broadcast response
-     */
-    fun getTextAfterCursor(count: Int): String {
-        return currentInputConnection?.getTextAfterCursor(count, 0)?.toString() ?: ""
-    }
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+    private fun parseColor(c: String) = try { Color.parseColor(c) } catch (_: Exception) { Color.BLACK }
 }

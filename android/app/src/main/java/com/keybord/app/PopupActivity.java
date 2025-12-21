@@ -18,6 +18,7 @@ public class PopupActivity extends Activity {
     
     private static final String TAG = "PopupActivity";
     private WebView webView;
+    private KeyboardAPI keyboardAPI;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -27,7 +28,7 @@ public class PopupActivity extends Activity {
         getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         getWindow().setLayout(
             (int)(getResources().getDisplayMetrics().widthPixels * 0.92),
-            (int)(getResources().getDisplayMetrics().heightPixels * 0.5)
+            (int)(getResources().getDisplayMetrics().heightPixels * 0.55)
         );
         getWindow().setGravity(Gravity.CENTER);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -40,7 +41,11 @@ public class PopupActivity extends Activity {
         webSettings.setJavaScriptEnabled(true);
         webSettings.setDomStorageEnabled(true);
         
-        webView.addJavascriptInterface(new PopupBridge(), "Android");
+        // Add both bridges
+        keyboardAPI = new KeyboardAPI(this);
+        webView.addJavascriptInterface(keyboardAPI, "Android");
+        webView.addJavascriptInterface(new PopupBridge(), "PopupBridge");
+        
         webView.setWebViewClient(new WebViewClient());
         
         FrameLayout container = new FrameLayout(this);
@@ -48,8 +53,6 @@ public class PopupActivity extends Activity {
         container.addView(webView);
         
         setContentView(container);
-        
-        // Load HTML from assets/www/popup/popup.html
         webView.loadUrl("file:///android_asset/public/popup/popup.html");
     }
     
@@ -57,12 +60,7 @@ public class PopupActivity extends Activity {
         
         @JavascriptInterface
         public void close() {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    finish();
-                }
-            });
+            runOnUiThread(() -> finish());
         }
         
         @JavascriptInterface
