@@ -12,7 +12,7 @@
             color: #fff; min-height: 100vh; padding: 12px;
             user-select: none; overflow-x: hidden;
         }
-        .header { text-align: center; padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; }
+        .header { text-align: center; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; }
         .header h1 { font-size: 18px; display: flex; align-items: center; justify-content: center; gap: 6px; }
         
         .tabs { display: flex; gap: 6px; margin-bottom: 12px; }
@@ -27,20 +27,25 @@
         .quick-btn:active { transform: scale(0.95); background: rgba(255,255,255,0.15); }
         .quick-btn .icon { font-size: 22px; margin-bottom: 4px; display: block; }
         
+        /* Console - Text display only */
         .console-box { background: #000; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
-        .console-label { color: #0f0; font-size: 10px; margin-bottom: 4px; font-family: monospace; }
-        #codeInput { width: 100%; height: 80px; background: rgba(0,0,0,0.5); border: 1px solid #333; border-radius: 6px; color: #0f0; font-family: monospace; font-size: 12px; padding: 8px; resize: none; }
-        #codeInput:focus { outline: none; border-color: #0f0; }
-        .console-btns { display: flex; gap: 6px; margin-top: 8px; }
-        .cbtn { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; }
-        .cbtn-run { background: #0f0; color: #000; }
-        .cbtn-clear { background: #333; color: #fff; }
-        #output { background: rgba(0,0,0,0.5); border: 1px solid #333; border-radius: 6px; padding: 8px; min-height: 40px; max-height: 80px; overflow-y: auto; font-family: monospace; font-size: 10px; color: #0f0; margin-top: 8px; }
+        .console-label { color: #0f0; font-size: 10px; margin-bottom: 6px; font-family: monospace; }
         
-        .cmd-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 5px; margin-top: 10px; }
-        .cmd-btn { padding: 8px 5px; background: #1a1a2e; border: 1px solid #333; border-radius: 5px; color: #fff; font-size: 9px; cursor: pointer; text-align: left; }
-        .cmd-btn:active { background: #2a2a4e; }
-        .cmd-btn code { color: #0f0; display: block; font-size: 8px; margin-top: 2px; }
+        .api-list { background: rgba(0,0,0,0.5); border: 1px solid #333; border-radius: 6px; padding: 10px; max-height: 200px; overflow-y: auto; }
+        .api-item { font-family: monospace; font-size: 11px; color: #0f0; padding: 6px 0; border-bottom: 1px solid #222; }
+        .api-item:last-child { border-bottom: none; }
+        .api-item .name { color: #ff0; }
+        .api-item .desc { color: #888; font-size: 9px; margin-top: 2px; }
+        
+        .test-section { margin-top: 12px; background: rgba(0,0,0,0.3); border-radius: 8px; padding: 10px; }
+        .test-section label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; }
+        .test-input { width: 100%; padding: 10px; background: #000; border: 1px solid #333; border-radius: 6px; color: #fff; font-family: monospace; font-size: 12px; }
+        .test-input:focus { outline: none; border-color: #0f0; }
+        .test-btns { display: flex; gap: 6px; margin-top: 8px; }
+        .test-btn { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 11px; }
+        .test-btn.run { background: #0f0; color: #000; }
+        .test-btn.clear { background: #333; color: #fff; }
+        #testResult { margin-top: 8px; padding: 8px; background: #000; border-radius: 4px; font-family: monospace; font-size: 10px; color: #0f0; min-height: 30px; }
         
         .text-tool { background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; margin-bottom: 10px; }
         .text-tool label { font-size: 11px; color: #888; display: block; margin-bottom: 6px; }
@@ -66,6 +71,7 @@
         <button class="tab" onclick="showPanel('text')">📝 Text</button>
     </div>
     
+    <!-- Quick Panel -->
     <div id="panel-quick" class="panel active">
         <div class="quick-grid">
             <div class="quick-btn" onclick="doPaste()"><span class="icon">📥</span>Paste</div>
@@ -82,24 +88,37 @@
         </div>
     </div>
     
+    <!-- Console Panel - API Reference (text only) + Test Input -->
     <div id="panel-console" class="panel">
         <div class="console-box">
-            <div class="console-label">▶ JavaScript</div>
-            <textarea id="codeInput" placeholder="Android.typeText('Hello')"></textarea>
-            <div class="console-btns">
-                <button class="cbtn cbtn-run" onclick="runCode()">▶ RUN</button>
-                <button class="cbtn cbtn-clear" onclick="clearConsole()">✕ CLEAR</button>
+            <div class="console-label">📖 API Reference (copy and test below)</div>
+            <div class="api-list">
+                <div class="api-item"><span class="name">Android.typeText("text")</span><div class="desc">Type text to original input</div></div>
+                <div class="api-item"><span class="name">Android.backspace()</span><div class="desc">Delete one character</div></div>
+                <div class="api-item"><span class="name">Android.enter()</span><div class="desc">Press enter key</div></div>
+                <div class="api-item"><span class="name">Android.paste()</span><div class="desc">Paste from clipboard</div></div>
+                <div class="api-item"><span class="name">Android.clearAll()</span><div class="desc">Clear all text</div></div>
+                <div class="api-item"><span class="name">Android.copyToClipboard("text")</span><div class="desc">Copy text to clipboard</div></div>
+                <div class="api-item"><span class="name">Android.getClipboardText()</span><div class="desc">Get clipboard text</div></div>
+                <div class="api-item"><span class="name">Android.vibrate(50)</span><div class="desc">Vibrate for ms</div></div>
+                <div class="api-item"><span class="name">Android.toast("msg")</span><div class="desc">Show toast message</div></div>
+                <div class="api-item"><span class="name">Android.close()</span><div class="desc">Close popup</div></div>
+                <div class="api-item"><span class="name">Android.hideKeyboard()</span><div class="desc">Hide keyboard</div></div>
             </div>
-            <div id="output">Ready</div>
         </div>
-        <div class="cmd-grid">
-            <button class="cmd-btn" onclick="quickCmd('Android.typeText(\"Test\")')">Type<code>typeText()</code></button>
-            <button class="cmd-btn" onclick="quickCmd('Android.backspace()')">Delete<code>backspace()</code></button>
-            <button class="cmd-btn" onclick="quickCmd('Android.vibrate(50)')">Vibrate<code>vibrate()</code></button>
-            <button class="cmd-btn" onclick="quickCmd('Android.toast(\"Hi!\")')">Toast<code>toast()</code></button>
+        
+        <div class="test-section">
+            <label>🧪 Test API Commands</label>
+            <input type="text" class="test-input" id="testInput" placeholder="Android.typeText('Hello')" />
+            <div class="test-btns">
+                <button class="test-btn run" onclick="runTest()">▶ Run</button>
+                <button class="test-btn clear" onclick="clearTest()">✕ Clear</button>
+            </div>
+            <div id="testResult">Ready...</div>
         </div>
     </div>
     
+    <!-- Text Panel -->
     <div id="panel-text" class="panel">
         <div class="text-tool">
             <label>📝 Quick Type</label>
@@ -131,21 +150,31 @@
             event.target.classList.add('active');
         }
         
+        // Quick actions - these use Android bridge to type to ORIGINAL input
         function doPaste() { if(typeof Android!=='undefined') Android.paste(); }
         function doClear() { if(typeof Android!=='undefined') Android.clearAll(); }
-        function doNewline() { if(typeof Android!=='undefined') { Android.typeText('\n'); Android.close(); } }
+        function doNewline() { if(typeof Android!=='undefined') { Android.typeText('\n'); } }
         function insertEmoji(e) { if(typeof Android!=='undefined') Android.typeText(e); }
         
-        function runCode() {
-            var code = document.getElementById('codeInput').value.trim();
-            var out = document.getElementById('output');
-            if(!code) { out.innerHTML = '<span style="color:#f44">No code</span>'; return; }
-            try { var r = eval(code); out.innerHTML = '<span style="color:#0f0">✓ ' + (r!==undefined?JSON.stringify(r):'OK') + '</span>'; }
-            catch(e) { out.innerHTML = '<span style="color:#f44">✗ ' + e.message + '</span>'; }
+        // Console test - run code from test input
+        function runTest() {
+            var code = document.getElementById('testInput').value.trim();
+            var result = document.getElementById('testResult');
+            if(!code) { result.innerHTML = '<span style="color:#f44">Enter a command</span>'; return; }
+            try { 
+                var r = eval(code); 
+                result.innerHTML = '<span style="color:#0f0">✓ ' + (r!==undefined ? JSON.stringify(r) : 'OK') + '</span>'; 
+            } catch(e) { 
+                result.innerHTML = '<span style="color:#f44">✗ ' + e.message + '</span>'; 
+            }
         }
-        function clearConsole() { document.getElementById('codeInput').value = ''; document.getElementById('output').innerHTML = 'Cleared'; }
-        function quickCmd(c) { document.getElementById('codeInput').value = c; runCode(); }
         
+        function clearTest() { 
+            document.getElementById('testInput').value = ''; 
+            document.getElementById('testResult').innerHTML = 'Cleared'; 
+        }
+        
+        // Text tools
         function typeQuickText() {
             var t = document.getElementById('quickTypeText').value;
             if(t && typeof Android!=='undefined') Android.typeText(t);
@@ -161,6 +190,11 @@
         
         function openSettings() { if(typeof Android!=='undefined') Android.openSettings(); }
         function closePopup() { if(typeof Android!=='undefined') Android.close(); }
+        
+        // Allow test input to be typed in (don't intercept)
+        document.getElementById('testInput').addEventListener('focus', function() {
+            // Input is focused - WebView handles this
+        });
     </script>
 </body>
 </html>

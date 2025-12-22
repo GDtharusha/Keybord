@@ -45,13 +45,8 @@ class FastKeyboardService : InputMethodService() {
         const val CMD_CLEAR_ALL = "CLEAR_ALL"
         const val CMD_VIBRATE = "VIBRATE"
         const val CMD_HIDE_KEYBOARD = "HIDE_KEYBOARD"
-        const val CMD_CLOSE_POPUP = "CLOSE_POPUP"
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // KEY INFO WITH NEAREST DETECTION
-    // ═══════════════════════════════════════════════════════════════════
-    
     data class KeyInfo(
         val key: String,
         val view: View,
@@ -62,9 +57,7 @@ class FastKeyboardService : InputMethodService() {
             view.getLocationOnScreen(loc)
             bounds.set(loc[0], loc[1], loc[0] + view.width, loc[1] + view.height)
         }
-        
         fun contains(x: Float, y: Float) = bounds.contains(x.toInt(), y.toInt())
-        
         fun distanceTo(x: Float, y: Float): Float {
             val cx = bounds.centerX().toFloat()
             val cy = bounds.centerY().toFloat()
@@ -72,46 +65,36 @@ class FastKeyboardService : InputMethodService() {
         }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SETTINGS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Settings
     private var colorBackground = "#000000"
     private var colorKeyNormal = "#1a1a1a"
     private var colorKeySpecial = "#0d0d0d"
     private var colorKeyEnter = "#2563eb"
     private var colorKeySpace = "#1a1a1a"
     private var colorText = "#ffffff"
-    
     private var keyboardHeight = 245
     private var keyRadius = 8
     private var keyGap = 2
     private var keyTextSize = 20
-    
     private var vibrateEnabled = true
     private var vibrateDuration = 5
     private var showEmojiRow = false
     private var longPressDelay = 200
     private var repeatInterval = 20
 
-    // ═══════════════════════════════════════════════════════════════════
-    // LAYOUTS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Layouts
     private val layoutLetters = arrayOf(
         arrayOf("q", "w", "e", "r", "t", "y", "u", "i", "o", "p"),
         arrayOf("a", "s", "d", "f", "g", "h", "j", "k", "l"),
         arrayOf("⇧", "z", "x", "c", "v", "b", "n", "m", "⌫"),
         arrayOf("123", "🌐", ",", "SPACE", ".", "✨", "↵")
     )
-    
     private val layoutNumbers = arrayOf(
         arrayOf("1", "2", "3", "4", "5", "6", "7", "8", "9", "0"),
         arrayOf("@", "#", "$", "%", "&", "-", "+", "(", ")"),
         arrayOf("#+=", "*", "\"", "'", ":", ";", "!", "?", "⌫"),
         arrayOf("ABC", "🌐", ",", "SPACE", ".", "✨", "↵")
     )
-    
     private val layoutSymbols = arrayOf(
         arrayOf("~", "`", "|", "•", "√", "π", "÷", "×", "¶", "∆"),
         arrayOf("£", "€", "¥", "^", "°", "=", "{", "}", "\\"),
@@ -119,26 +102,20 @@ class FastKeyboardService : InputMethodService() {
         arrayOf("ABC", "🌐", ",", "SPACE", ".", "✨", "↵")
     )
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SINHALA LABELS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Sinhala Labels
     private val sinhalaLabels = mapOf(
         "a" to "අ", "b" to "බ", "c" to "ච", "d" to "ඩ", "e" to "එ",
         "f" to "ෆ", "g" to "ග", "h" to "හ", "i" to "ඉ", "j" to "ජ",
         "k" to "ක", "l" to "ල", "m" to "ම", "n" to "න", "o" to "ඔ",
         "p" to "ප", "q" to "ක", "r" to "ර", "s" to "ස", "t" to "ට",
-        "u" to "උ", "v" to "ව", "w" to "ව", "x" to "ං", "y" to "ය",
-        "z" to "ඤ"
+        "u" to "උ", "v" to "ව", "w" to "ව", "x" to "ං", "y" to "ය", "z" to "ඤ"
     )
-    
     private val sinhalaLabelsShift = mapOf(
         "a" to "ඇ", "b" to "භ", "c" to "ඡ", "d" to "ඪ", "e" to "ඓ",
         "f" to "ෆ", "g" to "ඝ", "h" to "ඃ", "i" to "ඊ", "j" to "ඣ",
         "k" to "ඛ", "l" to "ළ", "m" to "ඹ", "n" to "ණ", "o" to "ඕ",
         "p" to "ඵ", "q" to "ඛ", "r" to "ර", "s" to "ෂ", "t" to "ඨ",
-        "u" to "ඌ", "v" to "ව", "w" to "ව", "x" to "ඞ", "y" to "ය",
-        "z" to "ඥ"
+        "u" to "ඌ", "v" to "ව", "w" to "ව", "x" to "ඞ", "y" to "ය", "z" to "ඥ"
     )
 
     // ═══════════════════════════════════════════════════════════════════
@@ -155,7 +132,7 @@ class FastKeyboardService : InputMethodService() {
     private val consonants3 = mapOf(
         "Sha" to "ෂ", "Cha" to "ඡ", "Tha" to "ථ", "Dha" to "ධ",
         "kha" to "ඛ", "gha" to "ඝ", "pha" to "ඵ", "bha" to "භ",
-        "sha" to "ශ", "ruu" to "ඎ"
+        "sha" to "ශ", "ruu" to "ඎ", "Ruu" to "ඎ"
     )
     
     private val consonants2 = mapOf(
@@ -164,7 +141,7 @@ class FastKeyboardService : InputMethodService() {
         "dh" to "ද", "Dh" to "ධ", "ph" to "ඵ", "bh" to "භ",
         "sh" to "ශ", "Sh" to "ෂ", "Ta" to "ඨ", "Da" to "ඪ",
         "Na" to "ණ", "La" to "ළ", "Lu" to "ළු", "Ba" to "ඹ",
-        "zb" to "ඹ", "zn" to "ං"
+        "zb" to "ඹ", "zn" to "ං", "ru" to "ඍ", "Ru" to "ඍ"
     )
     
     private val consonants1 = mapOf(
@@ -183,31 +160,30 @@ class FastKeyboardService : InputMethodService() {
     private val specialConsonants = mapOf("x" to "ං", "X" to "ඞ", "H" to "ඃ")
     
     private val vowelsStandalone = mapOf(
-        "ruu" to "ඎ", "aa" to "ආ", "Aa" to "ඈ", "AA" to "ඈ",
+        "ruu" to "ඎ", "Ruu" to "ඎ", "ru" to "ඍ", "Ru" to "ඍ",
+        "aa" to "ආ", "Aa" to "ඈ", "AA" to "ඈ",
         "ae" to "ඇ", "Ae" to "ඈ", "ii" to "ඊ", "II" to "ඊ",
         "uu" to "ඌ", "UU" to "ඌ", "ee" to "ඒ", "ei" to "ඒ",
         "oo" to "ඕ", "oe" to "ඕ", "au" to "ඖ", "Au" to "ඖ",
-        "ai" to "ඓ", "Ai" to "ඓ", "ru" to "ඍ", "Ru" to "ඍ",
+        "ai" to "ඓ", "Ai" to "ඓ",
         "a" to "අ", "A" to "ඇ", "i" to "ඉ", "I" to "ඊ",
         "u" to "උ", "U" to "ඌ", "e" to "එ", "E" to "ඓ",
         "o" to "ඔ", "O" to "ඕ"
     )
     
     private val vowelModifiers = mapOf(
-        "ruu" to "ෲ", "aa" to "ා", "Aa" to "ෑ", "AA" to "ෑ",
+        "ruu" to "ෲ", "Ruu" to "ෲ", "ru" to "ෘ", "Ru" to "ෘ",
+        "aa" to "ා", "Aa" to "ෑ", "AA" to "ෑ",
         "ae" to "ැ", "Ae" to "ෑ", "ii" to "ී", "II" to "ී",
         "uu" to "ූ", "UU" to "ූ", "ee" to "ේ", "ei" to "ේ",
         "oo" to "ෝ", "oe" to "ෝ", "au" to "ෞ", "Au" to "ෞ",
-        "ai" to "ෛ", "Ai" to "ෛ", "ru" to "ෘ", "Ru" to "ෘ",
+        "ai" to "ෛ", "Ai" to "ෛ",
         "a" to "", "A" to "ැ", "i" to "ි", "I" to "ී",
         "u" to "ු", "U" to "ූ", "e" to "ෙ", "E" to "ෛ",
         "o" to "ො", "O" to "ෝ"
     )
 
-    // ═══════════════════════════════════════════════════════════════════
-    // STATE
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // State
     private var rootContainer: FrameLayout? = null
     private var keyboardContainer: LinearLayout? = null
     private var backgroundImageView: ImageView? = null
@@ -240,18 +216,17 @@ class FastKeyboardService : InputMethodService() {
     
     private val keyInfoList = mutableListOf<KeyInfo>()
     private var currentPressedKey: KeyInfo? = null
+    private var touchProcessed = false  // Prevent double processing
     
     private var navigationBarHeight = 0
     
-    // Floating Popup
+    // Popup
     private var floatingPopupView: View? = null
     private var windowManager: WindowManager? = null
     private var isPopupShowing = false
+    private var savedInputConnection: InputConnection? = null  // Save for popup API calls
 
-    // ═══════════════════════════════════════════════════════════════════
-    // RECEIVERS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Receivers
     private val settingsReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (intent?.action == KeyboardSettings.ACTION_SETTINGS_CHANGED) {
@@ -272,20 +247,15 @@ class FastKeyboardService : InputMethodService() {
     
     private fun executeApiCommand(command: String, data: String, count: Int) {
         val ic = currentInputConnection ?: return
-        
         when (command) {
-            CMD_TYPE_TEXT -> {
-                flushBuffer()
-                ic.commitText(data, 1)
-            }
+            CMD_TYPE_TEXT -> { flushBuffer(); ic.commitText(data, 1) }
             CMD_BACKSPACE -> repeat(count) { ic.deleteSurroundingText(1, 0) }
-            CMD_ENTER -> { ic.performEditorAction(EditorInfo.IME_ACTION_DONE) }
+            CMD_ENTER -> ic.performEditorAction(EditorInfo.IME_ACTION_DONE)
             CMD_CURSOR_LEFT -> moveCursor(ic, -1)
             CMD_CURSOR_RIGHT -> moveCursor(ic, 1)
             CMD_CLEAR_ALL -> { ic.performContextMenuAction(android.R.id.selectAll); ic.commitText("", 1) }
             CMD_VIBRATE -> vibrateMs(data.toIntOrNull() ?: 50)
             CMD_HIDE_KEYBOARD -> requestHideSelf(0)
-            CMD_CLOSE_POPUP -> hideFloatingPopup()
         }
     }
     
@@ -296,10 +266,7 @@ class FastKeyboardService : InputMethodService() {
         ic.setSelection(pos, pos)
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // LIFECYCLE
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Lifecycle
     override fun onCreate() {
         super.onCreate()
         loadSettings()
@@ -367,10 +334,7 @@ class FastKeyboardService : InputMethodService() {
         longPressDelay = settings.longPressDelay
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // INPUT VIEW
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Input View
     override fun onCreateInputView(): View {
         loadSettings()
         
@@ -391,11 +355,11 @@ class FastKeyboardService : InputMethodService() {
         
         rootContainer?.addView(keyboardContainer, FrameLayout.LayoutParams(-1, -2).apply { gravity = Gravity.BOTTOM })
         
-        // ULTRA FAST Touch Layer
+        // Touch Layer
         rootContainer?.addView(View(this).apply {
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = FrameLayout.LayoutParams(-1, -1)
-            setOnTouchListener { _, e -> handleTouchUltraFast(e) }
+            setOnTouchListener { _, e -> handleTouch(e) }
         })
         
         val emojiH = if (showEmojiRow) dp(44) else 0
@@ -410,7 +374,12 @@ class FastKeyboardService : InputMethodService() {
         try {
             val path = settings.backgroundImage
             if (!path.isNullOrEmpty() && File(path).exists()) {
-                BitmapFactory.decodeFile(path)?.let {
+                val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+                BitmapFactory.decodeFile(path, options)
+                val sw = resources.displayMetrics.widthPixels
+                options.inSampleSize = maxOf(1, options.outWidth / sw)
+                options.inJustDecodeBounds = false
+                BitmapFactory.decodeFile(path, options)?.let {
                     backgroundImageView?.setImageBitmap(it)
                     backgroundImageView?.alpha = 0.3f
                     return
@@ -437,58 +406,49 @@ class FastKeyboardService : InputMethodService() {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // ULTRA FAST TOUCH - ZERO DELAY
+    // TOUCH HANDLING - FIXED: Action keys only on UP
     // ═══════════════════════════════════════════════════════════════════
     
     private fun updateKeyBounds() { keyInfoList.forEach { it.updateBounds() } }
     
-    /**
-     * NEAREST KEY DETECTION - Restored!
-     * If direct hit fails, find closest key within threshold
-     */
     private fun findKey(x: Float, y: Float): KeyInfo? {
-        // Direct hit first
         keyInfoList.find { it.contains(x, y) }?.let { return it }
-        
-        // Nearest key within threshold
         var nearest: KeyInfo? = null
         var minDist = Float.MAX_VALUE
         val threshold = dp(50).toFloat()
-        
         for (ki in keyInfoList) {
             val dist = ki.distanceTo(x, y)
-            if (dist < minDist && dist < threshold) {
-                minDist = dist
-                nearest = ki
-            }
+            if (dist < minDist && dist < threshold) { minDist = dist; nearest = ki }
         }
         return nearest
     }
     
-    /**
-     * ULTRA FAST Touch Handler - NO DEBOUNCE for letters
-     */
-    private fun handleTouchUltraFast(event: MotionEvent): Boolean {
+    private fun isActionKey(key: String) = key in listOf("⇧", "123", "ABC", "#+=", "🌐", "✨")
+    
+    private fun handleTouch(event: MotionEvent): Boolean {
         val x = event.rawX
         val y = event.rawY
         
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
+                touchProcessed = false
                 findKey(x, y)?.let { key ->
                     currentPressedKey = key
                     applyPressEffect(key)
                     showPreview(key)
                     
-                    // Immediate processing for non-repeatable keys
-                    if (key.key != "⌫") {
-                        // Process immediately on DOWN for speed!
-                        vibrate()
-                        processKeyImmediate(key.key)
-                    } else {
-                        // Backspace: start repeat
-                        vibrate()
-                        processKeyImmediate(key.key)
-                        startRepeat(key.key)
+                    // Character keys: process immediately for speed
+                    // Action keys: wait for UP to prevent multiple triggers
+                    if (!isActionKey(key.key)) {
+                        if (key.key == "⌫") {
+                            vibrate()
+                            handleBackspace(currentInputConnection ?: return@let)
+                            startRepeat(key.key)
+                        } else {
+                            vibrate()
+                            processCharKey(key.key)
+                        }
+                        touchProcessed = true
                     }
                 }
             }
@@ -498,72 +458,75 @@ class FastKeyboardService : InputMethodService() {
                     if (newKey != currentPressedKey) {
                         currentPressedKey?.let { resetPressEffect(it) }
                         stopRepeat()
+                        touchProcessed = false
                         
                         currentPressedKey = newKey
                         applyPressEffect(newKey)
                         showPreview(newKey)
                         
-                        // Process new key immediately
-                        vibrate()
-                        processKeyImmediate(newKey.key)
-                        
-                        if (newKey.key == "⌫") startRepeat(newKey.key)
+                        if (!isActionKey(newKey.key)) {
+                            if (newKey.key == "⌫") {
+                                vibrate()
+                                handleBackspace(currentInputConnection ?: return@let)
+                                startRepeat(newKey.key)
+                            } else {
+                                vibrate()
+                                processCharKey(newKey.key)
+                            }
+                            touchProcessed = true
+                        }
                     }
                 }
             }
             
-            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+            MotionEvent.ACTION_UP -> {
                 hidePreview()
                 stopRepeat()
+                
+                currentPressedKey?.let { key ->
+                    // Action keys: process only on UP (prevents multiple triggers)
+                    if (isActionKey(key.key) && !touchProcessed) {
+                        vibrate()
+                        processActionKey(key.key)
+                    }
+                    resetPressEffect(key)
+                }
+                currentPressedKey = null
+                touchProcessed = false
+            }
+            
+            MotionEvent.ACTION_CANCEL -> {
+                hidePreview(); stopRepeat()
                 currentPressedKey?.let { resetPressEffect(it) }
                 currentPressedKey = null
+                touchProcessed = false
             }
         }
         return true
     }
     
-    private fun applyPressEffect(ki: KeyInfo) {
-        ki.view.alpha = 0.7f
-        ki.view.scaleX = 0.92f
-        ki.view.scaleY = 0.92f
-    }
-    
-    private fun resetPressEffect(ki: KeyInfo) {
-        ki.view.alpha = 1f
-        ki.view.scaleX = 1f
-        ki.view.scaleY = 1f
-    }
+    private fun applyPressEffect(ki: KeyInfo) { ki.view.alpha = 0.7f; ki.view.scaleX = 0.92f; ki.view.scaleY = 0.92f }
+    private fun resetPressEffect(ki: KeyInfo) { ki.view.alpha = 1f; ki.view.scaleX = 1f; ki.view.scaleY = 1f }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // PREVIEW
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Preview
     private fun showPreview(ki: KeyInfo) {
         if (isSpecialKey(ki.key) || ki.key == "SPACE") { hidePreview(); return }
-        
         val text = when {
             isSinhalaMode && ki.key.length == 1 && ki.key[0].isLetter() -> {
-                val labels = if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels
-                labels[ki.key.lowercase()] ?: ki.key
+                (if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels)[ki.key.lowercase()] ?: ki.key
             }
-            ki.key.length == 1 && ki.key[0].isLetter() -> {
-                if (isShift || isCaps) ki.key.uppercase() else ki.key
-            }
+            ki.key.length == 1 && ki.key[0].isLetter() -> if (isShift || isCaps) ki.key.uppercase() else ki.key
             else -> ki.key
         }
-        
         previewText?.text = text
         previewText?.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED)
-        
         val loc = IntArray(2); ki.view.getLocationOnScreen(loc)
         val pw = maxOf(dp(56), (previewText?.measuredWidth ?: 0) + dp(20))
         val ph = dp(60)
         var px = loc[0] + (ki.view.width - pw) / 2
         val py = loc[1] - ph - dp(8)
-        
         val sw = resources.displayMetrics.widthPixels
         px = px.coerceIn(dp(4), sw - pw - dp(4))
-        
         try {
             if (previewPopup?.isShowing == true) previewPopup?.update(px, py, pw, ph)
             else { previewPopup?.width = pw; previewPopup?.height = ph; previewPopup?.showAtLocation(rootContainer, Gravity.NO_GRAVITY, px, py) }
@@ -572,10 +535,7 @@ class FastKeyboardService : InputMethodService() {
     
     private fun hidePreview() { try { if (previewPopup?.isShowing == true) previewPopup?.dismiss() } catch (_: Exception) {} }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // KEYBOARD BUILD
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Keyboard Build
     private fun createEmojiRow(): LinearLayout {
         return LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
@@ -617,21 +577,16 @@ class FastKeyboardService : InputMethodService() {
     private fun createKey(key: String): View {
         val container = FrameLayout(this)
         val tv = TextView(this).apply { gravity = Gravity.CENTER; typeface = Typeface.DEFAULT_BOLD; includeFontPadding = false }
-        
         val (display, textColor, textSize) = getKeyConfig(key)
         tv.text = display; tv.setTextColor(textColor); tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, textSize)
-        
-        // Sinhala sub-label
         if (isSinhalaMode && key.length == 1 && key[0].isLetter()) {
-            val labels = if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels
-            labels[key.lowercase()]?.let { lbl ->
+            (if (isShift || isCaps) sinhalaLabelsShift else sinhalaLabels)[key.lowercase()]?.let { lbl ->
                 container.addView(TextView(this).apply {
                     text = lbl; setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f); setTextColor(Color.parseColor("#888888"))
                     layoutParams = FrameLayout.LayoutParams(-2, -2).apply { gravity = Gravity.TOP or Gravity.END; setMargins(0, dp(2), dp(4), 0) }
                 })
             }
         }
-        
         container.layoutParams = LinearLayout.LayoutParams(0, -1, getWeight(key)).apply { setMargins(dp(keyGap), dp(keyGap), dp(keyGap), dp(keyGap)) }
         container.addView(tv, FrameLayout.LayoutParams(-1, -1))
         container.background = createKeyBg(key)
@@ -668,27 +623,28 @@ class FastKeyboardService : InputMethodService() {
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // KEY PROCESSING - IMMEDIATE
+    // KEY PROCESSING - SEPARATED: Action vs Character
     // ═══════════════════════════════════════════════════════════════════
     
-    private fun processKeyImmediate(key: String) {
-        val ic = currentInputConnection ?: return
-        
+    private fun processActionKey(key: String) {
         when (key) {
-            "⇧" -> { handleShift(); return }
-            "⌫" -> { handleBackspace(ic); return }
-            "↵" -> { flushBuffer(); handleEnter(ic); return }
-            "SPACE" -> { flushBuffer(); ic.commitText(" ", 1); return }
-            ",", "." -> { flushBuffer(); ic.commitText(key, 1); return }
-            "123" -> { flushBuffer(); isNumbers = true; isSymbols = false; rebuildKeyboard(); return }
-            "ABC" -> { flushBuffer(); isNumbers = false; isSymbols = false; rebuildKeyboard(); return }
-            "#+=" -> { flushBuffer(); isSymbols = true; rebuildKeyboard(); return }
-            "🌐" -> { flushBuffer(); isSinhalaMode = !isSinhalaMode; rebuildKeyboard(); return }
-            "✨" -> { flushBuffer(); showFloatingPopup(); return }
+            "⇧" -> { handleShift() }
+            "123" -> { flushBuffer(); isNumbers = true; isSymbols = false; rebuildKeyboard() }
+            "ABC" -> { flushBuffer(); isNumbers = false; isSymbols = false; rebuildKeyboard() }
+            "#+=" -> { flushBuffer(); isSymbols = true; rebuildKeyboard() }
+            "🌐" -> { flushBuffer(); isSinhalaMode = !isSinhalaMode; rebuildKeyboard() }
+            "✨" -> { flushBuffer(); showFloatingPopup() }
         }
-        
-        // Character key
-        handleChar(ic, key)
+    }
+    
+    private fun processCharKey(key: String) {
+        val ic = currentInputConnection ?: return
+        when (key) {
+            "↵" -> { flushBuffer(); handleEnter(ic) }
+            "SPACE" -> { flushBuffer(); ic.commitText(" ", 1) }
+            ",", "." -> { flushBuffer(); ic.commitText(key, 1) }
+            else -> handleChar(ic, key)
+        }
     }
     
     private fun handleShift() {
@@ -716,8 +672,6 @@ class FastKeyboardService : InputMethodService() {
     private fun handleChar(ic: InputConnection, key: String) {
         if (key.isEmpty()) return
         var c = key[0]
-        
-        // Apply shift for letters
         if ((isShift || isCaps) && c.isLetter()) c = c.uppercaseChar()
         
         if (isSinhalaMode && c.isLetter()) {
@@ -727,15 +681,11 @@ class FastKeyboardService : InputMethodService() {
             ic.commitText(c.toString(), 1)
         }
         
-        // Auto-reset shift (not caps)
-        if (isShift && !isCaps && c.isLetter()) {
-            isShift = false
-            rebuildKeyboard()
-        }
+        if (isShift && !isCaps && c.isLetter()) { isShift = false; rebuildKeyboard() }
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH ENGINE - FIXED FOR SHIFT
+    // SINGLISH ENGINE - COMPLETE FIXED
     // ═══════════════════════════════════════════════════════════════════
     
     private fun processSinglish(ic: InputConnection, c: Char) {
@@ -757,7 +707,7 @@ class FastKeyboardService : InputMethodService() {
             var isConsonant = false
             var needsHal = false
             
-            // Priority 1: Special 4-5 char
+            // Priority 1: 4-5 char specials
             for (len in minOf(5, english.length - i) downTo 3) {
                 val sub = english.substring(i, i + len)
                 consonantsSpecial[sub]?.let { matched = it; matchLen = len; isConsonant = true; needsHal = !sub.endsWith("a") }
@@ -767,7 +717,15 @@ class FastKeyboardService : InputMethodService() {
             // Priority 2: 3 char
             if (matched == null && i + 3 <= english.length) {
                 val sub = english.substring(i, i + 3)
-                consonants3[sub]?.let { matched = it; matchLen = 3; isConsonant = true; needsHal = !sub.endsWith("a") }
+                consonants3[sub]?.let { matched = it; matchLen = 3; isConsonant = true; needsHal = !sub.endsWith("a") && sub !in listOf("ruu", "Ruu") }
+                if (matched == null && sub in listOf("ruu", "Ruu")) {
+                    if (lastWasConsonant && result.isNotEmpty() && result.endsWith(HAL)) {
+                        result.deleteCharAt(result.length - 1)
+                        matched = vowelModifiers[sub]; matchLen = 3; lastWasConsonant = false
+                    } else if (!lastWasConsonant) {
+                        matched = vowelsStandalone[sub]; matchLen = 3
+                    }
+                }
                 if (matched == null && lastWasConsonant) vowelModifiers[sub]?.let {
                     if (result.isNotEmpty() && result.endsWith(HAL)) result.deleteCharAt(result.length - 1)
                     matched = it; matchLen = 3; lastWasConsonant = false
@@ -778,7 +736,18 @@ class FastKeyboardService : InputMethodService() {
             // Priority 3: 2 char
             if (matched == null && i + 2 <= english.length) {
                 val sub = english.substring(i, i + 2)
-                consonants2[sub]?.let { matched = it; matchLen = 2; isConsonant = true; needsHal = sub !in listOf("Lu", "zn", "zb") && !sub.endsWith("a") }
+                
+                // Check ru/Ru first as special vowel
+                if (sub in listOf("ru", "Ru")) {
+                    if (lastWasConsonant && result.isNotEmpty() && result.endsWith(HAL)) {
+                        result.deleteCharAt(result.length - 1)
+                        matched = vowelModifiers[sub]; matchLen = 2; lastWasConsonant = false
+                    } else if (!lastWasConsonant) {
+                        matched = vowelsStandalone[sub]; matchLen = 2
+                    }
+                }
+                
+                if (matched == null) consonants2[sub]?.let { matched = it; matchLen = 2; isConsonant = true; needsHal = sub !in listOf("Lu", "zn", "zb", "ru", "Ru") && !sub.endsWith("a") }
                 if (matched == null && lastWasConsonant) vowelModifiers[sub]?.let {
                     if (result.isNotEmpty() && result.endsWith(HAL)) result.deleteCharAt(result.length - 1)
                     matched = it; matchLen = 2; lastWasConsonant = false
@@ -826,31 +795,29 @@ class FastKeyboardService : InputMethodService() {
     private fun flushBuffer() { englishBuffer.clear(); currentSinhalaLength = 0 }
 
     // ═══════════════════════════════════════════════════════════════════
-    // FLOATING POPUP - WindowManager Overlay (Doesn't steal focus!)
+    // FLOATING POPUP - FIXED: WebView can receive focus for inputs
     // ═══════════════════════════════════════════════════════════════════
     
     private fun showFloatingPopup() {
         if (isPopupShowing) return
+        
+        // Save current input connection for API calls
+        savedInputConnection = currentInputConnection
         
         try {
             val dm = resources.displayMetrics
             val width = (dm.widthPixels * 0.92f).toInt()
             val height = (dm.heightPixels * 0.5f).toInt()
             
-            // Create WebView for popup
             val webView = WebView(this).apply {
                 setBackgroundColor(Color.TRANSPARENT)
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
-                
-                // Add bridge that types to ORIGINAL input
                 addJavascriptInterface(PopupJsBridge(), "Android")
-                
                 webViewClient = WebViewClient()
                 loadUrl("file:///android_asset/public/popup/popup.html")
             }
             
-            // Container with rounded corners
             val container = FrameLayout(this).apply {
                 background = GradientDrawable().apply {
                     setColor(Color.parseColor("#1a1a2e"))
@@ -862,19 +829,15 @@ class FastKeyboardService : InputMethodService() {
             floatingPopupView = container
             
             val params = WindowManager.LayoutParams(
-                width,
-                height,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
-                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
-                else 
-                    WindowManager.LayoutParams.TYPE_PHONE,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
-                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
+                width, height,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+                else WindowManager.LayoutParams.TYPE_PHONE,
+                // ALLOW FOCUS for WebView inputs!
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.CENTER
-                x = 0
-                y = -(dm.heightPixels / 6) // Position above center
+                y = -(dm.heightPixels / 6)
             }
             
             windowManager?.addView(container, params)
@@ -882,12 +845,6 @@ class FastKeyboardService : InputMethodService() {
             
         } catch (e: Exception) {
             e.printStackTrace()
-            // Fallback: open activity
-            try {
-                startActivity(Intent(this, PopupActivity::class.java).apply { 
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) 
-                })
-            } catch (_: Exception) {}
         }
     }
     
@@ -897,34 +854,36 @@ class FastKeyboardService : InputMethodService() {
             floatingPopupView?.let { windowManager?.removeView(it) }
             floatingPopupView = null
             isPopupShowing = false
+            savedInputConnection = null
         } catch (_: Exception) {}
     }
     
     /**
-     * JavaScript Bridge for Floating Popup
-     * Types directly to the ORIGINAL input connection!
+     * Popup JS Bridge - API calls go to SAVED input connection (original input)
      */
     inner class PopupJsBridge {
         
         @JavascriptInterface
         fun typeText(text: String) {
             handler.post {
-                currentInputConnection?.let { ic ->
-                    flushBuffer()
-                    ic.commitText(text, 1)
-                }
+                // Use SAVED connection, not current (which might be null or popup's)
+                savedInputConnection?.commitText(text, 1)
                 hideFloatingPopup()
             }
         }
         
         @JavascriptInterface
         fun backspace() {
-            handler.post { currentInputConnection?.deleteSurroundingText(1, 0) }
+            handler.post { savedInputConnection?.deleteSurroundingText(1, 0) }
         }
         
         @JavascriptInterface
         fun enter() {
-            handler.post { handleEnter(currentInputConnection ?: return@post) }
+            handler.post { 
+                savedInputConnection?.let { 
+                    it.performEditorAction(EditorInfo.IME_ACTION_DONE)
+                }
+            }
         }
         
         @JavascriptInterface
@@ -932,9 +891,7 @@ class FastKeyboardService : InputMethodService() {
             handler.post {
                 try {
                     val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    cm.primaryClip?.getItemAt(0)?.text?.let { text ->
-                        currentInputConnection?.commitText(text, 1)
-                    }
+                    cm.primaryClip?.getItemAt(0)?.text?.let { savedInputConnection?.commitText(it, 1) }
                 } catch (_: Exception) {}
                 hideFloatingPopup()
             }
@@ -943,9 +900,9 @@ class FastKeyboardService : InputMethodService() {
         @JavascriptInterface
         fun clearAll() {
             handler.post {
-                currentInputConnection?.let { ic ->
-                    ic.performContextMenuAction(android.R.id.selectAll)
-                    ic.commitText("", 1)
+                savedInputConnection?.let { 
+                    it.performContextMenuAction(android.R.id.selectAll)
+                    it.commitText("", 1)
                 }
                 hideFloatingPopup()
             }
@@ -968,45 +925,28 @@ class FastKeyboardService : InputMethodService() {
         }
         
         @JavascriptInterface
-        fun vibrate(ms: Int) {
-            vibrateMs(ms)
-        }
+        fun vibrate(ms: Int) { vibrateMs(ms) }
         
         @JavascriptInterface
-        fun toast(msg: String) {
-            handler.post { Toast.makeText(this@FastKeyboardService, msg, Toast.LENGTH_SHORT).show() }
-        }
+        fun toast(msg: String) { handler.post { Toast.makeText(this@FastKeyboardService, msg, Toast.LENGTH_SHORT).show() } }
         
         @JavascriptInterface
-        fun close() {
-            handler.post { hideFloatingPopup() }
-        }
+        fun close() { handler.post { hideFloatingPopup() } }
         
         @JavascriptInterface
         fun openSettings() {
-            try {
-                startActivity(Intent(this@FastKeyboardService, MainActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-            } catch (_: Exception) {}
+            try { startActivity(Intent(this@FastKeyboardService, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (_: Exception) {}
             handler.post { hideFloatingPopup() }
         }
         
         @JavascriptInterface
-        fun hideKeyboard() {
-            handler.post { requestHideSelf(0); hideFloatingPopup() }
-        }
+        fun hideKeyboard() { handler.post { requestHideSelf(0); hideFloatingPopup() } }
         
         @JavascriptInterface
-        fun log(msg: String) {
-            android.util.Log.d(TAG, "PopupJS: $msg")
-        }
+        fun log(msg: String) { android.util.Log.d(TAG, "PopupJS: $msg") }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // HELPERS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Helpers
     private fun startRepeat(key: String) {
         isRepeating = true
         repeatRunnable = object : Runnable {
