@@ -118,23 +118,18 @@ class FastKeyboardService : InputMethodService() {
         "u" to "ඌ", "v" to "ව", "w" to "ව", "x" to "ඞ", "y" to "ය", "z" to "ඥ"
     )
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH ENGINE - COMPLETE FIXED MAPPINGS
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Singlish Engine
     private val consonantsSpecial = mapOf(
         "zdha" to "ඳ", "zja" to "ඦ", "zda" to "ඬ", "zga" to "ඟ",
         "zdh" to "ඳ", "zqa" to "ඳ", "zka" to "ඤ", "zha" to "ඥ",
         "ksha" to "ක්ෂ", "ksh" to "ක්ෂ", "thth" to "ත්ථ",
         "nDh" to "ඳ", "ngh" to "ඟ"
     )
-    
     private val consonants3 = mapOf(
         "Sha" to "ෂ", "Cha" to "ඡ", "Tha" to "ථ", "Dha" to "ධ",
         "kha" to "ඛ", "gha" to "ඝ", "pha" to "ඵ", "bha" to "භ",
         "sha" to "ශ", "ruu" to "ඎ", "Ruu" to "ඎ"
     )
-    
     private val consonants2 = mapOf(
         "kh" to "ඛ", "gh" to "ඝ", "ch" to "ච", "Ch" to "ඡ",
         "jh" to "ඣ", "Ja" to "ඣ", "th" to "ත", "Th" to "ථ",
@@ -143,7 +138,6 @@ class FastKeyboardService : InputMethodService() {
         "Na" to "ණ", "La" to "ළ", "Lu" to "ළු", "Ba" to "ඹ",
         "zb" to "ඹ", "zn" to "ං", "ru" to "ඍ", "Ru" to "ඍ"
     )
-    
     private val consonants1 = mapOf(
         "k" to "ක", "K" to "ඛ", "g" to "ග", "G" to "ඝ",
         "c" to "ච", "C" to "ඡ", "j" to "ජ", "J" to "ඣ",
@@ -156,9 +150,7 @@ class FastKeyboardService : InputMethodService() {
         "h" to "හ", "f" to "ෆ", "F" to "ෆ", "z" to "ඤ",
         "Z" to "ඥ", "q" to "ක", "Q" to "ඛ"
     )
-    
     private val specialConsonants = mapOf("x" to "ං", "X" to "ඞ", "H" to "ඃ")
-    
     private val vowelsStandalone = mapOf(
         "ruu" to "ඎ", "Ruu" to "ඎ", "ru" to "ඍ", "Ru" to "ඍ",
         "aa" to "ආ", "Aa" to "ඈ", "AA" to "ඈ",
@@ -170,7 +162,6 @@ class FastKeyboardService : InputMethodService() {
         "u" to "උ", "U" to "ඌ", "e" to "එ", "E" to "ඓ",
         "o" to "ඔ", "O" to "ඕ"
     )
-    
     private val vowelModifiers = mapOf(
         "ruu" to "ෲ", "Ruu" to "ෲ", "ru" to "ෘ", "Ru" to "ෘ",
         "aa" to "ා", "Aa" to "ෑ", "AA" to "ෑ",
@@ -187,7 +178,6 @@ class FastKeyboardService : InputMethodService() {
     private var rootContainer: FrameLayout? = null
     private var keyboardContainer: LinearLayout? = null
     private var backgroundImageView: ImageView? = null
-    
     private val handler = Handler(Looper.getMainLooper())
     private val settings by lazy { KeyboardSettings(this) }
     
@@ -216,7 +206,12 @@ class FastKeyboardService : InputMethodService() {
     
     private val keyInfoList = mutableListOf<KeyInfo>()
     private var currentPressedKey: KeyInfo? = null
-    private var touchProcessed = false  // Prevent double processing
+    
+    // ═══════════════════════════════════════════════════════════════════
+    // TOUCH STATE - FIXED: Track processed keys properly
+    // ═══════════════════════════════════════════════════════════════════
+    private var lastProcessedKey: String? = null  // Track which key was processed in this touch
+    private var touchId = 0L  // Unique ID for each touch session
     
     private var navigationBarHeight = 0
     
@@ -224,7 +219,7 @@ class FastKeyboardService : InputMethodService() {
     private var floatingPopupView: View? = null
     private var windowManager: WindowManager? = null
     private var isPopupShowing = false
-    private var savedInputConnection: InputConnection? = null  // Save for popup API calls
+    private var savedInputConnection: InputConnection? = null
 
     // Receivers
     private val settingsReceiver = object : BroadcastReceiver() {
@@ -355,7 +350,6 @@ class FastKeyboardService : InputMethodService() {
         
         rootContainer?.addView(keyboardContainer, FrameLayout.LayoutParams(-1, -2).apply { gravity = Gravity.BOTTOM })
         
-        // Touch Layer
         rootContainer?.addView(View(this).apply {
             setBackgroundColor(Color.TRANSPARENT)
             layoutParams = FrameLayout.LayoutParams(-1, -1)
@@ -400,13 +394,19 @@ class FastKeyboardService : InputMethodService() {
         rebuildKeyboard()
     }
     
+    // ═══════════════════════════════════════════════════════════════════
+    // FIXED: Don't close popup in onFinishInputView!
+    // ═══════════════════════════════════════════════════════════════════
     override fun onFinishInputView(finishingInput: Boolean) {
         super.onFinishInputView(finishingInput)
-        hidePreview(); flushBuffer(); hideFloatingPopup()
+        hidePreview()
+        flushBuffer()
+        // DON'T close popup here! It causes auto-close issue
+        // hideFloatingPopup() -- REMOVED!
     }
 
     // ═══════════════════════════════════════════════════════════════════
-    // TOUCH HANDLING - FIXED: Action keys only on UP
+    // TOUCH HANDLING - COMPLETELY FIXED
     // ═══════════════════════════════════════════════════════════════════
     
     private fun updateKeyBounds() { keyInfoList.forEach { it.updateBounds() } }
@@ -431,49 +431,62 @@ class FastKeyboardService : InputMethodService() {
         
         when (event.action) {
             MotionEvent.ACTION_DOWN -> {
-                touchProcessed = false
+                // New touch session
+                touchId = System.currentTimeMillis()
+                lastProcessedKey = null
+                
                 findKey(x, y)?.let { key ->
                     currentPressedKey = key
                     applyPressEffect(key)
                     showPreview(key)
                     
+                    // Action keys: DON'T process on DOWN, wait for UP
+                    if (isActionKey(key.key)) {
+                        // Just visual feedback, no action yet
+                    } 
+                    // Backspace: process and start repeat
+                    else if (key.key == "⌫") {
+                        vibrate()
+                        handleBackspace(currentInputConnection ?: return@let)
+                        lastProcessedKey = key.key
+                        startRepeat(key.key)
+                    }
                     // Character keys: process immediately for speed
-                    // Action keys: wait for UP to prevent multiple triggers
-                    if (!isActionKey(key.key)) {
-                        if (key.key == "⌫") {
-                            vibrate()
-                            handleBackspace(currentInputConnection ?: return@let)
-                            startRepeat(key.key)
-                        } else {
-                            vibrate()
-                            processCharKey(key.key)
-                        }
-                        touchProcessed = true
+                    else {
+                        vibrate()
+                        processCharKey(key.key)
+                        lastProcessedKey = key.key
                     }
                 }
             }
             
             MotionEvent.ACTION_MOVE -> {
                 findKey(x, y)?.let { newKey ->
-                    if (newKey != currentPressedKey) {
+                    // Only if moved to a DIFFERENT key
+                    if (newKey.key != currentPressedKey?.key) {
+                        // Reset old key visual
                         currentPressedKey?.let { resetPressEffect(it) }
                         stopRepeat()
-                        touchProcessed = false
                         
+                        // Set new key
                         currentPressedKey = newKey
                         applyPressEffect(newKey)
                         showPreview(newKey)
                         
-                        if (!isActionKey(newKey.key)) {
-                            if (newKey.key == "⌫") {
+                        // Process new key if it's different from last processed
+                        if (newKey.key != lastProcessedKey) {
+                            if (isActionKey(newKey.key)) {
+                                // Action keys: don't process on move
+                            } else if (newKey.key == "⌫") {
                                 vibrate()
                                 handleBackspace(currentInputConnection ?: return@let)
+                                lastProcessedKey = newKey.key
                                 startRepeat(newKey.key)
                             } else {
                                 vibrate()
                                 processCharKey(newKey.key)
+                                lastProcessedKey = newKey.key
                             }
-                            touchProcessed = true
                         }
                     }
                 }
@@ -484,29 +497,41 @@ class FastKeyboardService : InputMethodService() {
                 stopRepeat()
                 
                 currentPressedKey?.let { key ->
-                    // Action keys: process only on UP (prevents multiple triggers)
-                    if (isActionKey(key.key) && !touchProcessed) {
+                    // Action keys: process ONLY on UP, and only if not already processed
+                    if (isActionKey(key.key) && lastProcessedKey != key.key) {
                         vibrate()
                         processActionKey(key.key)
+                        lastProcessedKey = key.key
                     }
                     resetPressEffect(key)
                 }
+                
                 currentPressedKey = null
-                touchProcessed = false
+                lastProcessedKey = null
             }
             
             MotionEvent.ACTION_CANCEL -> {
-                hidePreview(); stopRepeat()
+                hidePreview()
+                stopRepeat()
                 currentPressedKey?.let { resetPressEffect(it) }
                 currentPressedKey = null
-                touchProcessed = false
+                lastProcessedKey = null
             }
         }
         return true
     }
     
-    private fun applyPressEffect(ki: KeyInfo) { ki.view.alpha = 0.7f; ki.view.scaleX = 0.92f; ki.view.scaleY = 0.92f }
-    private fun resetPressEffect(ki: KeyInfo) { ki.view.alpha = 1f; ki.view.scaleX = 1f; ki.view.scaleY = 1f }
+    private fun applyPressEffect(ki: KeyInfo) { 
+        ki.view.alpha = 0.7f
+        ki.view.scaleX = 0.92f
+        ki.view.scaleY = 0.92f 
+    }
+    
+    private fun resetPressEffect(ki: KeyInfo) { 
+        ki.view.alpha = 1f
+        ki.view.scaleX = 1f
+        ki.view.scaleY = 1f 
+    }
 
     // Preview
     private fun showPreview(ki: KeyInfo) {
@@ -533,7 +558,9 @@ class FastKeyboardService : InputMethodService() {
         } catch (_: Exception) {}
     }
     
-    private fun hidePreview() { try { if (previewPopup?.isShowing == true) previewPopup?.dismiss() } catch (_: Exception) {} }
+    private fun hidePreview() { 
+        try { if (previewPopup?.isShowing == true) previewPopup?.dismiss() } catch (_: Exception) {} 
+    }
 
     // Keyboard Build
     private fun createEmojiRow(): LinearLayout {
@@ -622,13 +649,10 @@ class FastKeyboardService : InputMethodService() {
         return GradientDrawable().apply { setColor(parseColor(color)); cornerRadius = dp(keyRadius).toFloat() }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // KEY PROCESSING - SEPARATED: Action vs Character
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Key Processing
     private fun processActionKey(key: String) {
         when (key) {
-            "⇧" -> { handleShift() }
+            "⇧" -> handleShift()
             "123" -> { flushBuffer(); isNumbers = true; isSymbols = false; rebuildKeyboard() }
             "ABC" -> { flushBuffer(); isNumbers = false; isSymbols = false; rebuildKeyboard() }
             "#+=" -> { flushBuffer(); isSymbols = true; rebuildKeyboard() }
@@ -648,7 +672,11 @@ class FastKeyboardService : InputMethodService() {
     }
     
     private fun handleShift() {
-        when { isCaps -> { isCaps = false; isShift = false }; isShift -> isCaps = true; else -> isShift = true }
+        when { 
+            isCaps -> { isCaps = false; isShift = false }
+            isShift -> isCaps = true
+            else -> isShift = true 
+        }
         rebuildKeyboard()
     }
     
@@ -681,13 +709,14 @@ class FastKeyboardService : InputMethodService() {
             ic.commitText(c.toString(), 1)
         }
         
-        if (isShift && !isCaps && c.isLetter()) { isShift = false; rebuildKeyboard() }
+        // Auto-reset shift after typing a letter (not for caps lock)
+        if (isShift && !isCaps && c.isLetter()) { 
+            isShift = false
+            rebuildKeyboard() 
+        }
     }
 
-    // ═══════════════════════════════════════════════════════════════════
-    // SINGLISH ENGINE - COMPLETE FIXED
-    // ═══════════════════════════════════════════════════════════════════
-    
+    // Singlish Engine
     private fun processSinglish(ic: InputConnection, c: Char) {
         if (currentSinhalaLength > 0) ic.deleteSurroundingText(currentSinhalaLength, 0)
         englishBuffer.append(c)
@@ -736,8 +765,6 @@ class FastKeyboardService : InputMethodService() {
             // Priority 3: 2 char
             if (matched == null && i + 2 <= english.length) {
                 val sub = english.substring(i, i + 2)
-                
-                // Check ru/Ru first as special vowel
                 if (sub in listOf("ru", "Ru")) {
                     if (lastWasConsonant && result.isNotEmpty() && result.endsWith(HAL)) {
                         result.deleteCharAt(result.length - 1)
@@ -746,7 +773,6 @@ class FastKeyboardService : InputMethodService() {
                         matched = vowelsStandalone[sub]; matchLen = 2
                     }
                 }
-                
                 if (matched == null) consonants2[sub]?.let { matched = it; matchLen = 2; isConsonant = true; needsHal = sub !in listOf("Lu", "zn", "zb", "ru", "Ru") && !sub.endsWith("a") }
                 if (matched == null && lastWasConsonant) vowelModifiers[sub]?.let {
                     if (result.isNotEmpty() && result.endsWith(HAL)) result.deleteCharAt(result.length - 1)
@@ -795,13 +821,13 @@ class FastKeyboardService : InputMethodService() {
     private fun flushBuffer() { englishBuffer.clear(); currentSinhalaLength = 0 }
 
     // ═══════════════════════════════════════════════════════════════════
-    // FLOATING POPUP - FIXED: WebView can receive focus for inputs
+    // FLOATING POPUP - FIXED: Stays open, inputs work
     // ═══════════════════════════════════════════════════════════════════
     
     private fun showFloatingPopup() {
         if (isPopupShowing) return
         
-        // Save current input connection for API calls
+        // Save connection BEFORE opening popup
         savedInputConnection = currentInputConnection
         
         try {
@@ -813,37 +839,52 @@ class FastKeyboardService : InputMethodService() {
                 setBackgroundColor(Color.TRANSPARENT)
                 settings.javaScriptEnabled = true
                 settings.domStorageEnabled = true
+                settings.setSupportZoom(false)
                 addJavascriptInterface(PopupJsBridge(), "Android")
-                webViewClient = WebViewClient()
+                webViewClient = object : WebViewClient() {
+                    override fun onPageFinished(view: WebView?, url: String?) {
+                        super.onPageFinished(view, url)
+                        // Popup loaded successfully
+                    }
+                }
                 loadUrl("file:///android_asset/public/popup/popup.html")
             }
             
             val container = FrameLayout(this).apply {
+                setBackgroundColor(Color.TRANSPARENT)
                 background = GradientDrawable().apply {
                     setColor(Color.parseColor("#1a1a2e"))
                     cornerRadius = dp(16).toFloat()
                 }
-                addView(webView, FrameLayout.LayoutParams(-1, -1).apply { setMargins(dp(2), dp(2), dp(2), dp(2)) })
+                addView(webView, FrameLayout.LayoutParams(-1, -1).apply { 
+                    setMargins(dp(2), dp(2), dp(2), dp(2)) 
+                })
             }
             
             floatingPopupView = container
             
+            // FIXED: Use proper flags that allow WebView to work
             val params = WindowManager.LayoutParams(
-                width, height,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
-                else WindowManager.LayoutParams.TYPE_PHONE,
-                // ALLOW FOCUS for WebView inputs!
-                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
+                width, 
+                height,
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY 
+                else 
+                    WindowManager.LayoutParams.TYPE_PHONE,
+                // These flags allow popup to receive touches but not steal keyboard focus
+                WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
                 PixelFormat.TRANSLUCENT
             ).apply {
                 gravity = Gravity.CENTER
-                y = -(dm.heightPixels / 6)
+                y = -(dm.heightPixels / 8)
             }
             
             windowManager?.addView(container, params)
             isPopupShowing = true
             
         } catch (e: Exception) {
+            android.util.Log.e(TAG, "Failed to show popup: ${e.message}")
             e.printStackTrace()
         }
     }
@@ -851,22 +892,23 @@ class FastKeyboardService : InputMethodService() {
     private fun hideFloatingPopup() {
         if (!isPopupShowing) return
         try {
-            floatingPopupView?.let { windowManager?.removeView(it) }
-            floatingPopupView = null
-            isPopupShowing = false
-            savedInputConnection = null
+            floatingPopupView?.let { 
+                windowManager?.removeView(it) 
+            }
         } catch (_: Exception) {}
+        floatingPopupView = null
+        isPopupShowing = false
+        savedInputConnection = null
     }
     
     /**
-     * Popup JS Bridge - API calls go to SAVED input connection (original input)
+     * Popup JS Bridge - All API calls go to SAVED original input
      */
     inner class PopupJsBridge {
         
         @JavascriptInterface
         fun typeText(text: String) {
             handler.post {
-                // Use SAVED connection, not current (which might be null or popup's)
                 savedInputConnection?.commitText(text, 1)
                 hideFloatingPopup()
             }
@@ -879,11 +921,7 @@ class FastKeyboardService : InputMethodService() {
         
         @JavascriptInterface
         fun enter() {
-            handler.post { 
-                savedInputConnection?.let { 
-                    it.performEditorAction(EditorInfo.IME_ACTION_DONE)
-                }
-            }
+            handler.post { savedInputConnection?.performEditorAction(EditorInfo.IME_ACTION_DONE) }
         }
         
         @JavascriptInterface
@@ -891,7 +929,9 @@ class FastKeyboardService : InputMethodService() {
             handler.post {
                 try {
                     val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
-                    cm.primaryClip?.getItemAt(0)?.text?.let { savedInputConnection?.commitText(it, 1) }
+                    cm.primaryClip?.getItemAt(0)?.text?.let { 
+                        savedInputConnection?.commitText(it, 1) 
+                    }
                 } catch (_: Exception) {}
                 hideFloatingPopup()
             }
@@ -928,22 +968,37 @@ class FastKeyboardService : InputMethodService() {
         fun vibrate(ms: Int) { vibrateMs(ms) }
         
         @JavascriptInterface
-        fun toast(msg: String) { handler.post { Toast.makeText(this@FastKeyboardService, msg, Toast.LENGTH_SHORT).show() } }
+        fun toast(msg: String) { 
+            handler.post { Toast.makeText(this@FastKeyboardService, msg, Toast.LENGTH_SHORT).show() } 
+        }
         
         @JavascriptInterface
-        fun close() { handler.post { hideFloatingPopup() } }
+        fun close() { 
+            handler.post { hideFloatingPopup() } 
+        }
         
         @JavascriptInterface
         fun openSettings() {
-            try { startActivity(Intent(this@FastKeyboardService, MainActivity::class.java).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }) } catch (_: Exception) {}
+            try { 
+                startActivity(Intent(this@FastKeyboardService, MainActivity::class.java).apply { 
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) 
+                }) 
+            } catch (_: Exception) {}
             handler.post { hideFloatingPopup() }
         }
         
         @JavascriptInterface
-        fun hideKeyboard() { handler.post { requestHideSelf(0); hideFloatingPopup() } }
+        fun hideKeyboard() { 
+            handler.post { 
+                requestHideSelf(0)
+                hideFloatingPopup() 
+            } 
+        }
         
         @JavascriptInterface
-        fun log(msg: String) { android.util.Log.d(TAG, "PopupJS: $msg") }
+        fun log(msg: String) { 
+            android.util.Log.d(TAG, "PopupJS: $msg") 
+        }
     }
 
     // Helpers
@@ -961,19 +1016,26 @@ class FastKeyboardService : InputMethodService() {
         handler.postDelayed(repeatRunnable!!, longPressDelay.toLong())
     }
     
-    private fun stopRepeat() { isRepeating = false; repeatRunnable?.let { handler.removeCallbacks(it) } }
+    private fun stopRepeat() { 
+        isRepeating = false
+        repeatRunnable?.let { handler.removeCallbacks(it) } 
+    }
+    
     private fun vibrate() { if (vibrateEnabled) vibrateMs(vibrateDuration) }
     
     private fun vibrateMs(ms: Int) {
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) vibrator?.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
-            else @Suppress("DEPRECATION") vibrator?.vibrate(ms.toLong())
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) 
+                vibrator?.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+            else 
+                @Suppress("DEPRECATION") vibrator?.vibrate(ms.toLong())
         } catch (_: Exception) {}
     }
     
     private fun rebuildKeyboard() {
         rootContainer ?: return
-        hidePreview(); keyInfoList.clear()
+        hidePreview()
+        keyInfoList.clear()
         keyboardContainer?.let { rootContainer?.removeView(it) }
         loadBackgroundImage()
         keyboardContainer = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
